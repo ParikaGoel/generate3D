@@ -7,11 +7,10 @@ set(EXECUTABLE_OUTPUT_PATH bin)
 set(LIBRARY_OUTPUT_PATH lib)
 
 # Adding include directories
-include_directories(external/mLib)
-include_directories(external/mLibExternal)
+include_directories(src/utils)
 
 # Add source files
-set(${PROJECT_NAME}_SOURCES
-        src/mLibInclude.cpp)
+#set(${PROJECT_NAME}_SOURCES
+#        src/mLibInclude.cpp)
 
 add_executable(${PROJECT_NAME} src/main.cpp)
