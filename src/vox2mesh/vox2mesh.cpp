@@ -25,6 +25,12 @@ void get_position_and_color_from_vox(
 	std::vector<Eigen::Vector3f> positions;
 	std::vector<Eigen::Matrix<uint8_t, 3, 1>> colors;
 	int n_voxels = 0;
+
+    if (vox.pdf.size() == 0) {
+        vox.pdf.resize(vox.sdf.size());
+        std::fill(vox.pdf.begin(), vox.pdf.end(), 1);
+    }
+
 	for (int k = 0; k < vox.dims[2]; k++) {
 		for (int j = 0; j < vox.dims[1]; j++) {
 			for (int i = 0; i < vox.dims[0]; i++) {
@@ -42,7 +48,7 @@ void get_position_and_color_from_vox(
 			}	
 		}	
 	}
-	
+
 	int n_verts_per_voxel = box_vertices.cols();
 	int n_elems_per_voxel = box_elements.cols();
 	std::cout << "n_voxels: " << n_voxels << std::endl;
@@ -63,6 +69,7 @@ void get_position_and_color_from_vox(
 		mesh.N.block(0, i*n_verts_per_voxel, 3, n_verts_per_voxel) = box_normals;
 		mesh.F.block(0, i*n_elems_per_voxel, 3, n_elems_per_voxel) = box_elements + Eigen::Matrix<uint32_t, -1, -1>::Constant(3, n_elems_per_voxel, i*n_verts_per_voxel);
 	}
+
 }
 
 void write_ply(const std::string & filename, PlyMesh &mesh) {

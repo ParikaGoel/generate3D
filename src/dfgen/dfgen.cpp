@@ -33,7 +33,7 @@ Where:
 
 int dfgen(std::string infile,
         int dim, int padding,
-        int is_unit_cube, std::string outfile){
+        int is_unit_cube, std::string outfile, voxel& vox){
 	
 	float dx = 1.0/(dim - 2*padding);
 
@@ -46,14 +46,13 @@ int dfgen(std::string infile,
 	load_mesh(infile, mesh);
 	std::vector<Vec3f> vertList;
 	std::vector<Vec3ui> faceList;
-	std::cout<<"Vertex list:\n";
 	for (int i = 0; i < mesh.V.cols(); i++) {
 		auto v = mesh.V.col(i);
 		Vec3f point(v(0), v(1), v(2));
-		std::cout<<point<<"\n";
 		update_minmax(point, min_box, max_box);
 		vertList.push_back(point);
 	}
+
 	std::cout<<"Bounding box: (" << min_box << ") to ("<< max_box <<")\n";
 
 	for (int i = 0; i < mesh.F.cols(); i++) {
@@ -64,6 +63,7 @@ int dfgen(std::string infile,
 	if (is_unit_cube) {
 		min_box = Vec3f(-1,-1,-1)*0.5;
 		max_box = Vec3f(1,1,1)*0.5;
+        std::cout<<"Unit Cube Bounding box changed to: (" << min_box << ") to ("<< max_box <<")\n";
 	}
 
 
@@ -83,7 +83,6 @@ int dfgen(std::string infile,
 	make_level_set3(faceList, vertList, min_box, dx, sizes[0], sizes[1], sizes[2], phi_grid);
 	assert(phi_grid.ni == dim && phi_grid.nj == dim && phi_grid.nk == dim);
 
-	voxel vox;
 	vox.dims = Eigen::Vector3i(phi_grid.ni, phi_grid.nj, phi_grid.nk);
 	vox.res = 1.0;
 	float dfix = 1.0/dim; 
