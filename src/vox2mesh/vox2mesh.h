@@ -17,7 +17,7 @@ struct PlyMesh {
 
 void get_position_and_color_from_vox(
         voxel &vox, PlyMesh &mesh, Eigen::Vector3f voxelsize,
-        float trunc, std::string cmap);
+        float trunc = 1.0f, std::string cmap = "jet");
 
 void write_ply(const std::string & filename, PlyMesh &mesh);
 

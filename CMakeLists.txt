@@ -12,15 +12,16 @@ find_package(Eigen3 3.3 REQUIRED)
 
 # Adding include directories
 include_directories(
-        src/Base
+        src/utils
         src/dfgen
         src/vox2mesh
         ${EIGEN3_INCLUDE_DIR}
         )
 
 set(SOURCE_FILES
-        src/Base/tiny_obj_loader.cpp
-        src/Base/tinyply.cpp
+        src/utils/tiny_obj_loader.cpp
+        src/utils/tinyply.cpp
+        src/utils/camera.cpp
         src/dfgen/dfgen.cpp
         src/dfgen/makelevelset3.cpp
         src/vox2mesh/vox2mesh.cpp

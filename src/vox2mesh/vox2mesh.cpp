@@ -11,7 +11,6 @@
 #include "mesh_loader.h"
 #include "SE3.h"
 #include "color_map.h"
-#include "args.hxx"
 #include <vox2mesh.h>
 
 Eigen::MatrixXf box_vertices, box_normals;
@@ -127,7 +126,6 @@ int vox2mesh(std::string vox_file,
 	}
 
 	PlyMesh mesh;
-	std::map<std::string, Eigen::MatrixXf*> hashmap;
 	get_position_and_color_from_vox(vox, mesh, voxelsize, trunc, cmap);
 
 	write_ply(ply_file, mesh);

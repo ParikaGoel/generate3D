@@ -4,12 +4,9 @@
 //This code is public domain. Feel free to mess with it, let me know if you like it.
 
 #include "makelevelset3.h"
-#include "config.h"
 #include "voxel_loader.h"
 #include "mesh_loader.h"
-#include <fstream>
 #include <iostream>
-#include <sstream>
 #include <limits>
 
 /*SDFGen - A utility for converting closed oriented triangle meshes into grid-based signed distance fields.
@@ -49,12 +46,16 @@ int dfgen(std::string infile,
 	load_mesh(infile, mesh);
 	std::vector<Vec3f> vertList;
 	std::vector<Vec3ui> faceList;
+	std::cout<<"Vertex list:\n";
 	for (int i = 0; i < mesh.V.cols(); i++) {
 		auto v = mesh.V.col(i);
 		Vec3f point(v(0), v(1), v(2));
+		std::cout<<point<<"\n";
 		update_minmax(point, min_box, max_box);
 		vertList.push_back(point);
 	}
+	std::cout<<"Bounding box: (" << min_box << ") to ("<< max_box <<")\n";
+
 	for (int i = 0; i < mesh.F.cols(); i++) {
 		auto f = mesh.F.col(i);
 		faceList.push_back(Vec3ui(f(0), f(1), f(2)));
@@ -89,7 +90,7 @@ int dfgen(std::string infile,
 	vox.grid2world = Eigen::Matrix4f::Identity();
 	vox.grid2world.block(0,0,3,3) *= dx;
 	vox.grid2world.block(0,3,3,1) = -0.5*Eigen::Vector3f(1,1,1) - Eigen::Vector3f::Constant(dfix); // <-- padding introduces offset
-	vox.grid2world = vox.grid2world.transpose().eval(); // <-- make row-major
+//	vox.grid2world = vox.grid2world.transpose().eval(); // <-- make row-major
 	vox.sdf.resize(phi_grid.a.size());
     vox.occ_val.resize(phi_grid.a.size());
 	for(unsigned int i = 0; i < phi_grid.a.size(); ++i) {
