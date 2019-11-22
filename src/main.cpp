@@ -39,16 +39,16 @@ int main(int argc, char *argv[]){
 
     // Hard coding the camera intrinsics for now -> ToDo(Parika) : Make a parameter file
     Eigen::Matrix3f camera_intr(Eigen::Matrix3f::Identity());
-    camera_intr(0,0) = 2.0f;
-    camera_intr(1,1) = 2.0f;
-    camera_intr(0,2) = 320.0f;
-    camera_intr(1,2) = 240.0f;
+    camera_intr(0,0) = 60.0f;
+    camera_intr(1,1) = 60.0f;
+    camera_intr(0,2) = 160.0f;
+    camera_intr(1,2) = 120.0f;
 
     // Hard coding the camera pose for now -> ToDo(Parika) : Make a parameter file
-    Eigen::Vector3f world_origin(5.0f, 5.0f , 5.0f);
+    Eigen::Vector3f world_origin(0.0f, 0.0f , 20.0f);
     Eigen::Quaternionf rot(0.7381445,0, 0.4770444, -0.4770444);
 
-    image img(640,480,camera_intr);
+    image img(320,240,camera_intr);
     img.setWorld2CamTransform(rot, world_origin);
 
     img.project(vox);
