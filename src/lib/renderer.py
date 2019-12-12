@@ -1,4 +1,5 @@
 import os
+import json
 import click
 import trimesh
 import pyrender
@@ -8,7 +9,7 @@ from scipy.spatial.transform import Rotation
 
 # Set the intrinsic and extrinsic properties of the camera
 def set_custom_camera(scene):
-    camera = trimesh.scene.Camera("Cam1", resolution=[512, 512], focal=[525.0, 525.0], z_near=0.01, z_far=1000.0)
+    camera = trimesh.scene.Camera("Cam1", resolution=[512, 512], focal=[525.0, 525.0], z_near=0.5, z_far=1.5)
     camera_transform = np.array([[1.00000000, 0.00000000, 0.00000000, 0.000457000000],
                                  [0.00000000, 1.00000000, 0.00000000, 0.0115150000],
                                  [0.00000000, 0.00000000, 1.00000000, 1.21847893],
@@ -32,11 +33,49 @@ def rotate_scene(scene, axis, value, degree=True):
     scene.camera_transform = transform
 
 
+def save_camera(scene, output_folder, _static={'counter':0}):
+    _static['counter'] += 1
+    file_name = 'cam%s.json' % _static['counter']
+    folder = 'camera'
+    folder = os.path.join(output_folder,folder)
+
+    if not os.path.exists(folder):
+        os.mkdir(folder)
+
+    full_path = os.path.join(folder, file_name)
+
+    cam = scene.camera
+    pose = scene.camera_transform.flatten(order='F')
+    cam_data = \
+        {
+            'intrinsic':
+            {
+                'width': int(cam.resolution[0]),
+                'height': int(cam.resolution[1]),
+                'fx': float(cam.focal[0]),
+                'fy': float(cam.focal[1]),
+                'z_near': float(cam.z_near),
+                'z_far': float(cam.z_far)
+            },
+            'pose': pose.tolist()
+        }
+
+    with open(full_path,'w') as fp:
+        json.dump(cam_data, fp)
+
+
 # Save the scene as png image
 def render_scene_as_png(scene, output_folder, _static={'counter': 0}):
     _static['counter'] += 1
-    file_name = '%s.png' % _static['counter']
-    path = os.path.join(output_folder, file_name)
+    file_name = 'color%s.png' % _static['counter']
+
+    folder = 'color'
+    folder = os.path.join(output_folder, folder)
+
+    if not os.path.exists(folder):
+        os.mkdir(folder)
+
+    path = os.path.join(folder, file_name)
     png_image = scene.save_image()
     file = open(path, 'wb')
     file.write(png_image)
@@ -54,6 +93,7 @@ def generate_data(model_file, output_folder, num=5):
 
     while count <= num:
         render_scene_as_png(scene, output_folder)
+        save_camera(scene, output_folder)
         degree_val -= 2
         rotate_scene(scene, axis, degree_val)
         count += 1

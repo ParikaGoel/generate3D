@@ -14,7 +14,8 @@ class VoxelGrid:
         self._min_bound = origin
         self._max_bound = origin + grid_size
         self._occ_grid = np.zeros((dim, dim, dim)).astype(int)
-        self._color_grid = np.ones((dim, dim, dim))
+        # last dimension in the color grid is the number of channels e.g RGB -> 3
+        self._color_grid = np.ones((dim, dim, dim, 3))
 
     # each voxel represents the global coordinate corresponding to its center
     def get_global_coord(self, grid_coord):
@@ -69,7 +70,7 @@ class VoxelGrid:
         self._occ_grid[grid_coord[0], grid_coord[1], grid_coord[2]] = is_occupied
 
     def set_color(self, grid_coord, color):
-        self._occ_grid[grid_coord[0], grid_coord[1], grid_coord[2]] = color
+        self._color_grid[grid_coord[0], grid_coord[1], grid_coord[2], :] = color
 
     def save_as_ply(self, filename, transform=None):
         cube_verts = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [0, 1, 1], [1, 0, 0], [1, 0, 1], [1, 1, 0],
@@ -93,7 +94,8 @@ class VoxelGrid:
                     translation = transform[0:3, 3]
                     vertex = np.matmul(rotation, vertex) + translation
                 vertex /= self._grid_size
-                vertex = np.append(vertex, [0, 169, 255])
+                color = self._color_grid[i,j,k,:]
+                vertex = np.append(vertex, color)
                 vertex = list(vertex)
                 verts.append(vertex)
 

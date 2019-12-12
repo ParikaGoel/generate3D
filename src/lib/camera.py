@@ -9,61 +9,90 @@ def load_camera(json_file):
     return cam
 
 
+# For now the center is always at the center of the image, so half of the resolution
 class Camera:
-    def __init__(self, fx=525.0, fy=525.0, cx=319.5, cy=239.5, width=640, height=480):
-        self._fx = fx
-        self._fy = fy
-        self._cx = cx
-        self._cy = cy
-        self._width = width
-        self._height = height
+    def __init__(self, resolution=[512, 512], focal=[525.0, 525.0], z_near=0.01, z_far=1000.0):
+        self._focal = focal
+        self._resolution = resolution
+        self._center = [(res / 2) for res in resolution]
+        self._znear = z_near
+        self._zfar = z_far
         self._extrinsic = np.identity(4)  # extrinsic matrix that gives the transformation from world to camera system
+        self._pose = np.identity(4) # camera pose : position of camera in world system
         self._intrinsic = np.identity(3)
 
-    def get_width(self):
-        return self._width
+    @property
+    def focal(self):
+        return self._focal
 
-    def get_height(self):
-        return self._height
+    @property
+    def resolution(self):
+        return self._resolution
 
-    def get_fx(self):
-        return self._fx
+    @property
+    def center(self):
+        return self._center
 
-    def get_fy(self):
-        return self._fy
+    @property
+    def z_near(self):
+        return self._znear
 
-    def get_cx(self):
-        return self._cx
+    @property
+    def z_far(self):
+        return self._zfar
 
-    def get_cy(self):
-        return self._cy
-
-    def get_intrinsic_matrix(self):
+    @property
+    def intrinsic(self):
         return self._intrinsic
 
-    def get_extrinsic_matrix(self):
+    @property
+    def extrinsic(self):
         return self._extrinsic
+
+    @property
+    def pose(self):
+        return self._pose
+
+    def fov(self):
+        fov = 2.0 * np.degrees(
+            np.arctan((self._resolution / 2.0) / self._focal))
+        return fov
     
     def load_from_json_file(self, filename):
         with open(filename) as camera_file:
             data = json.load(camera_file)
 
             # read the intrinsic parameters
-            self._width = data['intrinsic']['width']
-            self._height = data['intrinsic']['height']
+            self._resolution[0] = data['intrinsic']['width']
+            self._resolution[1] = data['intrinsic']['height']
 
-            intr = np.empty(0)
-            for val in data['intrinsic']['intrinsic_matrix']:
-                intr = np.append(intr, val)
-            self._intrinsic = np.transpose(np.reshape(intr, (3, 3)))
+            # intr = np.empty(0)
+            # for val in data['intrinsic']['intrinsic_matrix']:
+            #     intr = np.append(intr, val)
+            # self._intrinsic = np.transpose(np.reshape(intr, (3, 3)))
+            #
+            # self._focal[0] = self._intrinsic[0][0]
+            # self._focal[1] = self._intrinsic[1][1]
+            # self._center[0] = self._intrinsic[0][2]
+            # self._center[1] = self._intrinsic[1][2]
 
-            self._fx = self._intrinsic[0][0]
-            self._fy = self._intrinsic[1][1]
-            self._cx = self._intrinsic[0][2]
-            self._cy = self._intrinsic[1][2]
+            self._focal[0] = data['intrinsic']['fx']
+            self._focal[1] = data['intrinsic']['fy']
+            self._znear = data['intrinsic']['z_near']
+            self._zfar = data['intrinsic']['z_far']
+            self._center = [(res / 2) for res in self._resolution]
 
-            # read the extrinsic parameters
-            extr = np.empty(0)
-            for val in data['extrinsic']:
-                extr = np.append(extr, val)
-            self._extrinsic = np.transpose(np.reshape(extr, (4, 4)))
+            # set the intrinsic matrix
+            self._intrinsic[0][0] = self._focal[0]
+            self._intrinsic[1][1] = self._focal[1]
+            self._intrinsic[0][2] = self._center[0]
+            self._intrinsic[1][2] = self._center[1]
+
+            # read the camera pose
+            pose = np.empty(0)
+            for val in data['pose']:
+                pose = np.append(pose, val)
+            self._pose = np.transpose(np.reshape(pose, (4, 4)))
+
+            # extrinsic matrix will be the inverse of camera pose
+            self._extrinsic = np.linalg.inv(self._pose)
