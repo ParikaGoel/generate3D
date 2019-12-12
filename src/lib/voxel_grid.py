@@ -71,7 +71,7 @@ class VoxelGrid:
     def set_color(self, grid_coord, color):
         self._occ_grid[grid_coord[0], grid_coord[1], grid_coord[2]] = color
 
-    def save_as_ply(self, filename):
+    def save_as_ply(self, filename, transform=None):
         cube_verts = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [0, 1, 1], [1, 0, 0], [1, 0, 1], [1, 1, 0],
                       [1, 1, 1]])  # 8 points
 
@@ -88,6 +88,10 @@ class VoxelGrid:
                 vertex = (cube_vert + np.array([i, j, k])).astype(float)
                 vertex *= self._voxel_scale
                 vertex += self._min_bound
+                if transform is not None:
+                    rotation = transform[0:3, 0:3]
+                    translation = transform[0:3, 3]
+                    vertex = np.matmul(rotation, vertex) + translation
                 vertex /= self._grid_size
                 vertex = np.append(vertex, [0, 169, 255])
                 vertex = list(vertex)

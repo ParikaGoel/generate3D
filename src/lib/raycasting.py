@@ -9,7 +9,6 @@ def create_voxel_grid(cam):
     focal_length = cam.get_fx()
     principal_point_x = cam.get_cx()
     principal_point_y = cam.get_cy()
-
     voxel_min_bound = np.array([-2*principal_point_x, -2*principal_point_y, focal_length])
     grid_size = cam.get_width() * 2
     voxel_dim = 32
@@ -53,6 +52,9 @@ if __name__ == '__main__':
     image = load_image(image_file)
     voxel_grid = create_voxel_grid(cam)
     raycast(voxel_grid, cam, image)
-    voxel_grid.save_as_ply(voxel_file)
+
+    # Since we have done raycasting in camera system, apply the cam to world transform while saving the voxel
+    cam_pose = np.linalg.inv(cam.get_extrinsic_matrix())
+    voxel_grid.save_as_ply(voxel_file, cam_pose)
 
 
