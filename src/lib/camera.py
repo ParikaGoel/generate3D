@@ -66,16 +66,6 @@ class Camera:
             self._resolution[0] = data['intrinsic']['width']
             self._resolution[1] = data['intrinsic']['height']
 
-            # intr = np.empty(0)
-            # for val in data['intrinsic']['intrinsic_matrix']:
-            #     intr = np.append(intr, val)
-            # self._intrinsic = np.transpose(np.reshape(intr, (3, 3)))
-            #
-            # self._focal[0] = self._intrinsic[0][0]
-            # self._focal[1] = self._intrinsic[1][1]
-            # self._center[0] = self._intrinsic[0][2]
-            # self._center[1] = self._intrinsic[1][2]
-
             self._focal[0] = data['intrinsic']['fx']
             self._focal[1] = data['intrinsic']['fy']
             self._znear = data['intrinsic']['z_near']

@@ -1,6 +1,5 @@
 from camera import *
 from voxel_grid import *
-from image import *
 from PIL import Image
 import numpy as np
 
@@ -9,7 +8,7 @@ import numpy as np
 def create_voxel_grid(cam):
     focal_length = cam.focal
     principal_point = cam.center
-    voxel_min_bound = np.array([-principal_point[0], -principal_point[1], cam.z_near])
+    voxel_min_bound = np.array([-0.5, -0.5, cam.z_near])
     grid_size = abs(cam.z_far - cam.z_near) #cam.resolution[0] * 2
     voxel_dim = 32
     voxel_grid = VoxelGrid(voxel_min_bound, voxel_dim, grid_size)
@@ -50,7 +49,6 @@ if __name__ == '__main__':
     image_file = 'results/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/renderings/color/color1.png'
     voxel_file = 'results/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/raycasted_voxel/voxel1.ply'
     cam = load_camera(cam_file)
-    # image = load_image(image_file)
     im = Image.open(image_file)
     np_img = np.array(im)
     np_img = np_img[:, :, 0:3]

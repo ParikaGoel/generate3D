@@ -10,10 +10,10 @@ from scipy.spatial.transform import Rotation
 # Set the intrinsic and extrinsic properties of the camera
 def set_custom_camera(scene):
     camera = trimesh.scene.Camera("Cam1", resolution=[512, 512], focal=[525.0, 525.0], z_near=0.5, z_far=1.5)
-    camera_transform = np.array([[1.00000000, 0.00000000, 0.00000000, 0.000457000000],
-                                 [0.00000000, 1.00000000, 0.00000000, 0.0115150000],
-                                 [0.00000000, 0.00000000, 1.00000000, 1.21847893],
-                                 [0.00000000, 0.00000000, 0.00000000, 1.00000000]])
+    camera_transform = np.array([[1.0, 0.0, 0.0, 0.000457],
+                                 [0.0, 1.0, 0.0, 0.011515],
+                                 [0.0, 0.0, 1.0, 1.21847893],
+                                 [0.0, 0.0, 0.0, 1.0]])
     scene.camera = camera
     scene.camera_transform = camera_transform
 
@@ -122,16 +122,3 @@ def main(obj_file, out_name, num_renderings):
 
 if __name__ == '__main__':
     main()
-
-    # from trimesh.viewer.windowed import *
-    #
-    # model_file = '/home/parika/WorkingDir/complete3D/data/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/models/model_normalized.obj'
-    # depth_file = '/home/parika/WorkingDir/complete3D/results/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/renderings/depth/0.png'
-    # scene = trimesh.load(model_file, file_type='obj')
-    # scene_py = pyrender.Scene.from_trimesh_scene(scene)
-    # # viewer = pyrender.Viewer(scene_py, use_raymond_lighting=True)
-    #
-    # r = pyrender.OffscreenRenderer(512, 512)
-    # color, depth = r.render(scene_py)
-    # print(color)
-    # print(depth)

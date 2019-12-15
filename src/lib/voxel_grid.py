@@ -13,9 +13,11 @@ class VoxelGrid:
         self._grid_size = grid_size
         self._min_bound = origin
         self._max_bound = origin + grid_size
+        # Since we are looking in the -ve z direction, to have the z max bound, we need to subtract
+        self._max_bound[2] = self._max_bound[2] - 2 * grid_size
         self._occ_grid = np.zeros((dim, dim, dim)).astype(int)
         # last dimension in the color grid is the number of channels e.g RGB -> 3
-        self._color_grid = np.ones((dim, dim, dim, 3))
+        self._color_grid = np.zeros((dim, dim, dim, 3)).astype(int)
 
     # each voxel represents the global coordinate corresponding to its center
     def get_global_coord(self, grid_coord):
@@ -23,6 +25,8 @@ class VoxelGrid:
         global_coord = global_coord.astype(float)
         global_coord += 0.5
         global_coord *= self._voxel_scale
+        # we need to change the sign of z-coordinate since we are looking in the -ve z-direction
+        global_coord[2] = -global_coord[2]
         global_coord += self._min_bound
         return global_coord
 
@@ -35,16 +39,22 @@ class VoxelGrid:
 
         grid_coord = np.copy(global_coord)
         grid_coord -= self._min_bound
+        grid_coord[2] = -grid_coord[2]
         grid_coord /= self._voxel_scale
-        grid_coord -= 0.5
+
+        # To Check
+        # This should not be required since my global coordinate should already have -ve z
+        # grid_coord[2] = (self._min_bound[2] - global_coord[2]) / self._voxel_scale
+        # grid_coord[2] -= 0.5
         grid_coord = grid_coord.astype(int)
         return grid_coord
 
     def contains_global_coord(self, global_coord):
 
+        # since we are looking in the -ve z-direction, max bound for z will be lesser than min bound for z
         if self._min_bound[0] <= global_coord[0] <= self._max_bound[0] and \
                 self._min_bound[1] <= global_coord[1] <= self._max_bound[1] and \
-                self._min_bound[2] <= global_coord[2] <= self._max_bound[2]:
+                self._max_bound[2] <= global_coord[2] <= self._min_bound[2]:
             return True
         else:
             return False
@@ -70,7 +80,12 @@ class VoxelGrid:
         self._occ_grid[grid_coord[0], grid_coord[1], grid_coord[2]] = is_occupied
 
     def set_color(self, grid_coord, color):
-        self._color_grid[grid_coord[0], grid_coord[1], grid_coord[2], :] = color
+        # ToDo: Need to implement the averaging since right now the last rays color is the final color being saved
+        if np.all(self._color_grid[grid_coord[0], grid_coord[1], grid_coord[2], :] == 0):
+            self._color_grid[grid_coord[0], grid_coord[1], grid_coord[2], :] = color
+        else:
+            self._color_grid[grid_coord[0], grid_coord[1], grid_coord[2], :] += color
+            self._color_grid[grid_coord[0], grid_coord[1], grid_coord[2], :] //= 2
 
     def save_as_ply(self, filename, transform=None):
         cube_verts = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [0, 1, 1], [1, 0, 0], [1, 0, 1], [1, 1, 0],
@@ -88,12 +103,13 @@ class VoxelGrid:
             for cube_vert in cube_verts:
                 vertex = (cube_vert + np.array([i, j, k])).astype(float)
                 vertex *= self._voxel_scale
+                # since we are looking in -ve z direction
+                vertex[2] = -vertex[2]
                 vertex += self._min_bound
                 if transform is not None:
                     rotation = transform[0:3, 0:3]
                     translation = transform[0:3, 3]
                     vertex = np.matmul(rotation, vertex) + translation
-                vertex /= self._grid_size
                 color = self._color_grid[i,j,k,:]
                 vertex = np.append(vertex, color)
                 vertex = list(vertex)

@@ -19,8 +19,8 @@ def imshow(img):
 
 
 def main():
-    net = Net(1,1)
-    input = torch.randn(1,1,32,32,32)
+    net = Net(3, 3)
+    input = torch.randn(1, 3, 32, 32, 32)
     out = net(input)
     # print(out)
 
