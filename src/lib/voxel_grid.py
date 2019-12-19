@@ -42,11 +42,11 @@ class VoxelGrid:
         grid_coord[2] = -grid_coord[2]
         grid_coord /= self._voxel_scale
 
-        # To Check
-        # This should not be required since my global coordinate should already have -ve z
-        # grid_coord[2] = (self._min_bound[2] - global_coord[2]) / self._voxel_scale
-        # grid_coord[2] -= 0.5
         grid_coord = grid_coord.astype(int)
+
+        if np.any(grid_coord > self._dim-1):
+            return None
+
         return grid_coord
 
     def contains_global_coord(self, global_coord):
@@ -80,7 +80,6 @@ class VoxelGrid:
         self._occ_grid[grid_coord[0], grid_coord[1], grid_coord[2]] = is_occupied
 
     def set_color(self, grid_coord, color):
-        # ToDo: Need to implement the averaging since right now the last rays color is the final color being saved
         if np.all(self._color_grid[grid_coord[0], grid_coord[1], grid_coord[2], :] == 0):
             self._color_grid[grid_coord[0], grid_coord[1], grid_coord[2], :] = color
         else:

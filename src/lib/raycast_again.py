@@ -38,43 +38,117 @@ def create_voxel_grid(cam):
     return voxel_grid
 
 
+# def raycast(voxel_grid, cam, image):
+#     xy, pixels = trimesh.scene.cameras.ray_pixel_coords(cam)
+#     rays = np.column_stack((xy, -np.ones_like(xy[:, :1])))
+#
+#     nVoxels = 0
+#     voxel_txt_file = 'results/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/text/voxel.txt'
+#     voxel_file = open(voxel_txt_file, "w")
+#     for count in range(pixels.shape[0]):
+#         pixel = pixels[count]
+#         v = 511 if pixel[0] == 512 else pixel[0]
+#         u = 511 if pixel[1] == 512 else pixel[1]
+#
+#         ray = rays[count]
+#         ray_length = np.sqrt(np.sum(ray**2))
+#         unit_ray = ray / ray_length
+#
+#         while not voxel_grid.contains_global_coord(ray):
+#             ray_length = ray_length + (voxel_grid.get_voxel_scale() / 2)
+#             ray = unit_ray * ray_length
+#
+#
+#         grid_coord = voxel_grid.get_grid_coord(ray)
+#         if grid_coord is not None:
+#             if np.all(image[v,u] == 255):
+#                 voxel_grid.set_occupancy(grid_coord, 0)
+#             else:
+#                 nVoxels += 1
+#                 voxel_grid.set_occupancy(grid_coord, 1)
+#                 voxel_grid.set_color(grid_coord, image[v, u])
+#                 voxel_file.write("%d %d %d %d %d %d %d %d %d\n" % (ray[0], ray[1], ray[2], grid_coord[0], grid_coord[1], grid_coord[2], image[v, u, 0], image[v, u, 1], image[v, u, 2]))
+#
+#     print("occupied voxels: ", nVoxels)
+#         # while voxel_grid.contains_global_coord(ray):
+#         #     grid_coord = voxel_grid.get_grid_coord(ray)
+#         #     if grid_coord is not None:
+#         #         if np.all(image[v,u] == 255):
+#         #             voxel_grid.set_occupancy(grid_coord, 0)
+#         #         else:
+#         #             voxel_grid.set_occupancy(grid_coord, 1)
+#         #             voxel_grid.set_color(grid_coord, image[v, u])
+#         #     ray_length = ray_length + (voxel_grid.get_voxel_scale()/2)
+#         #     ray = unit_ray * ray_length
+
+
+# this will not work if the nearest plane for the camera is farther than the unit depth
+# Fix would be to calculate the intersection of each ray with the nearest plane and then iterate from there
+# ToDo : Implement the intersection logic
 def raycast(voxel_grid, cam, image):
-    xy, pixels = trimesh.scene.cameras.ray_pixel_coords(cam)
-    rays = np.column_stack((xy, -np.ones_like(xy[:, :1])))
+    width = image.shape[1]
+    height = image.shape[0]
+    center = width / 2
+    focal = cam.focal[0]
 
-    for count in range(pixels.shape[0]):
-        pixel = pixels[count]
-        u = 511 if pixel[0] == 512 else pixel[0]
-        v = 511 if pixel[1] == 512 else pixel[1]
+    nVoxels = 0
+    # voxel_txt_file = 'results/02747177/85d8a1ad55fa646878725384d6baf445/text/voxel.txt'
+    # voxel_txt_file = 'results/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/text/voxel.txt'
+    voxel_txt_file = 'results/03001627/bdc892547cceb2ef34dedfee80b7006/text/voxel.txt'
+    voxel_file = open(voxel_txt_file, "w")
+    for u in range(width):
+            for v in range(height):
+                x = (u - center) / focal
+                y = (v - center) / focal
+                ray = np.array([x, -y, -1])
+                ray_length = np.sqrt(np.sum(ray**2))
+                unit_ray = ray / ray_length
 
-        ray = rays[count]
-        ray_length = np.sqrt(np.sum(ray**2))
-        unit_ray = ray / ray_length
+                while voxel_grid.contains_global_coord(ray):
+                    grid_coord = voxel_grid.get_grid_coord(ray)
+                    if grid_coord is not None:
+                        if np.all(image[v, u] == 255):
+                            voxel_grid.set_occupancy(grid_coord, 0)
+                        else:
+                            nVoxels += 1
+                            voxel_grid.set_occupancy(grid_coord, 1)
+                            voxel_grid.set_color(grid_coord, image[v, u])
+                            voxel_file.write("%f %f %f %d %d %d %d %d %d\n" % (
+                            ray[0], ray[1], ray[2], grid_coord[0], grid_coord[1], grid_coord[2], image[v, u, 0],
+                            image[v, u, 1], image[v, u, 2]))
 
-        while voxel_grid.contains_global_coord(ray):
-            grid_coord = voxel_grid.get_grid_coord(ray)
-            if grid_coord is not None:
-                if np.all(image[v,u] == 255):
-                    voxel_grid.set_occupancy(grid_coord, 0)
-                else:
-                    voxel_grid.set_occupancy(grid_coord, 1)
-                    voxel_grid.set_color(grid_coord, image[v, u])
-            ray_length = ray_length + (voxel_grid.get_voxel_scale()/2)
-            ray = unit_ray * ray_length
+                    ray_length = ray_length + (voxel_grid.get_voxel_scale() / 2)
+                    ray = unit_ray * ray_length
+
+    print("occupied voxels: ", nVoxels)
 
 
 if __name__ == '__main__':
-    cam_file = 'results/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/renderings/camera/cam1.json'
-    image_file = 'results/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/renderings/color/color1.png'
-    voxel_file = 'results/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/raycasted_voxel/voxel1_cam.ply'
+    # cam_file = 'results/02747177/85d8a1ad55fa646878725384d6baf445/renderings/camera/cam1.json'
+    # image_file = 'results/02747177/85d8a1ad55fa646878725384d6baf445/renderings/color/color1.png'
+    # voxel_file = 'results/02747177/85d8a1ad55fa646878725384d6baf445/raycasted_voxel/voxel.ply'
+    # cam_file = 'results/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/renderings/camera/cam1.json'
+    # image_file = 'results/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/renderings/color/color1.png'
+    # voxel_file = 'results/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/raycasted_voxel/voxel.ply'
+    # cam_file = 'results/03001627/bdc892547cceb2ef34dedfee80b7006/renderings/camera/cam1.json'
+    # image_file = 'results/03001627/bdc892547cceb2ef34dedfee80b7006/renderings/color/color1.png'
+    # voxel_file = 'results/03001627/bdc892547cceb2ef34dedfee80b7006/raycasted_voxel/voxel.ply'
+
+    cam_file = 'results/04379243/142060f848466cad97ef9a13efb5e3f7/renderings/camera/cam1.json'
+    image_file = 'results/04379243/142060f848466cad97ef9a13efb5e3f7/renderings/color/color1.png'
+    voxel_file = 'results/04379243/142060f848466cad97ef9a13efb5e3f7/raycasted_voxel/voxel.ply'
+
     im = Image.open(image_file)
     np_img = np.array(im)
     np_img = np_img[:, :, 0:3]
 
-    # for u in range(512):
-    #     for v in range(512):
-    #         if not np.all(np_img[v,u,:] == 255):
-    #             print(u, v, np_img[v,u,:])
+    # saving the values in the image
+    # image_txt_file = 'results/02747177/85d8a1ad55fa646878725384d6baf445/text/color1.txt'
+    # with open(image_txt_file, "w") as f:
+    #     for u in range(512):
+    #         for v in range(512):
+    #             if not np.all(np_img[v,u,:] == 255):
+    #                 f.write("%d %d %d %d %d\n" % (u, v, np_img[v,u,0], np_img[v,u,1], np_img[v,u,2]))
 
 
 

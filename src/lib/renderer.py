@@ -86,7 +86,9 @@ def generate_data(model_file, output_folder, num=5):
     count = 1
     axis = 'z'
     degree_val = 0
-    scene = trimesh.load(model_file, file_type='obj')
+    mesh = trimesh.load(model_file, file_type='obj')
+    scene = mesh
+    # scene = mesh.scene()
 
     # Define the camera and set the camera of the scene to custom camera
     set_custom_camera(scene)
@@ -114,9 +116,6 @@ def generate_data(model_file, output_folder, num=5):
                help='Number of images to render. Default: 5',
                default=5)
 def main(obj_file, out_name, num_renderings):
-    # obj_file = '/home/parika/WorkingDir/complete3D/data/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/models/model_normalized.obj'
-    # renderings_folder = '/home/parika/WorkingDir/complete3D/data/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/renderings'
-
     generate_data(obj_file, out_name, num_renderings)
 
 
