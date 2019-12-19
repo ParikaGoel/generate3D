@@ -30,7 +30,7 @@ class VoxelGrid:
         global_coord += self._min_bound
         return global_coord
 
-    # Returns the grid coord cooresponding to global coordinate
+    # Returns the grid coord corresponding to global coordinate
     # If global coordinate does not lie inside the grid, returns None
     def get_grid_coord(self, global_coord):
 
