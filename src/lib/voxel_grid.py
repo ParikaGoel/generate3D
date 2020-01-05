@@ -44,7 +44,7 @@ class VoxelGrid:
 
         grid_coord = grid_coord.astype(int)
 
-        if np.any(grid_coord > self._dim-1):
+        if np.any(grid_coord > self._dim - 1):
             return None
 
         return grid_coord
@@ -59,17 +59,33 @@ class VoxelGrid:
         else:
             return False
 
-    def get_min_bound(self):
+    @property
+    def min_bound(self):
         return self._min_bound
 
-    def get_max_bound(self):
+    @property
+    def max_bound(self):
         return self._max_bound
 
-    def get_voxel_scale(self):
+    @property
+    def voxel_scale(self):
         return self._voxel_scale
 
-    def get_occupancy_vals(self):
+    @property
+    def occ_grid(self):
         return self._occ_grid
+
+    @occ_grid.setter
+    def occ_grid(self, value):
+        self._occ_grid = value
+
+    @property
+    def color_grid(self):
+        return self._color_grid
+
+    @color_grid.setter
+    def color_grid(self, value):
+        self._color_grid = value
 
     def is_occupied(self, grid_coord):
         if self._occ_grid[grid_coord[0], grid_coord[1], grid_coord[2]] == 1:
@@ -80,18 +96,37 @@ class VoxelGrid:
         self._occ_grid[grid_coord[0], grid_coord[1], grid_coord[2]] = is_occupied
 
     def set_color(self, grid_coord, color):
+        self.set_occupancy(grid_coord, is_occupied=1)
         if np.all(self._color_grid[grid_coord[0], grid_coord[1], grid_coord[2], :] == 0):
             self._color_grid[grid_coord[0], grid_coord[1], grid_coord[2], :] = color
         else:
             self._color_grid[grid_coord[0], grid_coord[1], grid_coord[2], :] += color
             self._color_grid[grid_coord[0], grid_coord[1], grid_coord[2], :] //= 2
 
-    def save_as_ply(self, filename, transform=None):
+    # Saves the color grid of the voxel in a file
+    # Occupancy grid is implicitly saved
+    def save_vox(self, filename):
+        positions = np.where(self._occ_grid == 1)
+        with open(filename, "w") as f:
+            for i, j, k in zip(*positions):
+                color = self._color_grid[i, j, k]
+                data = np.column_stack((i, j, k, color[0], color[1], color[2]))
+                np.savetxt(f, data, fmt='%d %d %d %d %d %d', delimiter=' ')
+
+    def load_vox(self, filename):
+        voxel = np.loadtxt(filename)
+        for data in voxel:
+            grid_coord = np.array((data[0], data[1], data[2])).astype(int)
+            color = np.array((data[3], data[4], data[5])).astype(int)
+            self.set_color(grid_coord, color)
+            self.set_occupancy(grid_coord, is_occupied=1)
+
+    def to_mesh(self, filename, transform=None):
         cube_verts = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [0, 1, 1], [1, 0, 0], [1, 0, 1], [1, 1, 0],
-                      [1, 1, 1]])  # 8 points
+                               [1, 1, 1]])  # 8 points
 
         cube_faces = np.array([[0, 1, 2], [1, 3, 2], [2, 3, 6], [3, 7, 6], [0, 2, 6], [0, 6, 4], [0, 5, 1],
-                      [0, 4, 5], [6, 7, 5], [6, 5, 4], [1, 7, 3], [1, 5, 7]])  # 6 faces (12 triangles)
+                               [0, 4, 5], [6, 7, 5], [6, 5, 4], [1, 7, 3], [1, 5, 7]])  # 6 faces (12 triangles)
 
         verts = []
         faces = []
@@ -109,7 +144,7 @@ class VoxelGrid:
                     rotation = transform[0:3, 0:3]
                     translation = transform[0:3, 3]
                     vertex = np.matmul(rotation, vertex) + translation
-                color = self._color_grid[i,j,k,:]
+                color = self._color_grid[i, j, k, :]
                 vertex = np.append(vertex, color)
                 vertex = list(vertex)
                 verts.append(vertex)
@@ -121,6 +156,17 @@ class VoxelGrid:
             curr_vertex += len(cube_verts)
 
         write_ply(filename, verts, faces)
+
+
+def create_voxel_grid(cam):
+    grid_size = abs(cam.z_far - cam.z_near)
+    voxel_min_bound = np.array([-grid_size / 2, -grid_size / 2, -cam.z_near])
+    voxel_dim = 32
+    voxel_grid = VoxelGrid(voxel_min_bound, voxel_dim, grid_size)
+    print("Min bound: ", voxel_grid.min_bound)
+    print("Max bound: ", voxel_grid.max_bound)
+    print("Voxel Scale: ", voxel_grid.voxel_scale)
+    return voxel_grid
 
 
 def write_ply(filename, verts, faces):

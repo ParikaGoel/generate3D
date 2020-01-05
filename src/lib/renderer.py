@@ -1,123 +1,135 @@
 import os
-import json
-import click
 import trimesh
 import pyrender
 import numpy as np
+from camera import *
+from config import *
+from PIL import Image
+import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation
 
 
-# Set the intrinsic and extrinsic properties of the camera
-def set_custom_camera(scene):
-    camera = trimesh.scene.Camera("Cam1", resolution=[512, 512], focal=[525.0, 525.0], z_near=0.5, z_far=1.5)
-    camera_transform = np.array([[1.0, 0.0, 0.0, 0.000457],
-                                 [0.0, 1.0, 0.0, 0.011515],
-                                 [0.0, 0.0, 1.0, 1.21847893],
-                                 [0.0, 0.0, 0.0, 1.0]])
-    scene.camera = camera
-    scene.camera_transform = camera_transform
+def create_scene(obj_file):
+    obj_mesh = trimesh.load(obj_file)
+    scene = pyrender.Scene(ambient_light=[1., 1., 1.], bg_color=[1., 1., 1.]) # bg = {0, 145, 255}
+
+    if (isinstance(obj_mesh, trimesh.Trimesh)):
+        mesh = pyrender.Mesh.from_trimesh(obj_mesh)
+        scene.add(mesh)
+    elif (isinstance(obj_mesh, trimesh.Scene)):
+        meshes = obj_mesh.dump()
+        for m in meshes:
+            mesh = pyrender.Mesh.from_trimesh(m)
+            scene.add(mesh)
+
+    return scene
 
 
-# Rotate the scene along a particular axis by specified degrees/ radians
-# To apply multiple rotations, provide arguments like below:
-# r = R.from_euler('zyx', [[90, 0, 0],[0, 45, 0],[45, 60, 30]], degrees=True)
-# Above example stacks three rotations specified degree along all the three rotation axis
-def rotate_scene(scene, axis, value, degree=True):
-    rot_matrix = Rotation.from_euler(axis, value, degrees=degree)
-    transform = np.eye(4)
-    # keep the translation same
-    transform[0:3, 3] = scene.camera_transform[0:3, 3]
-    # update the rotation matrix to the calculated rotation matrix
-    transform[0:3, 0:3] = rot_matrix.as_dcm()
-    # apply the transformation to the scene
-    scene.camera_transform = transform
+def save_img(color, depth, color_img_file, depth_img_file):
+    depth = (depth * depth_factor)
+    depth = depth.astype(np.int32)
+    im = Image.fromarray(color)
+    depth_im = Image.fromarray(depth, mode='I')
+    im.save(color_img_file)
+    depth_im.save(depth_img_file)
 
 
-def save_camera(scene, output_folder, _static={'counter':0}):
-    _static['counter'] += 1
-    file_name = 'cam%s.json' % _static['counter']
-    folder = 'camera'
-    folder = os.path.join(output_folder,folder)
-
-    if not os.path.exists(folder):
-        os.mkdir(folder)
-
-    full_path = os.path.join(folder, file_name)
-
-    cam = scene.camera
-    pose = scene.camera_transform.flatten(order='F')
+def export_cam_to_json(cam, pose, file_name):
+    pose = pose.flatten(order='F')
     cam_data = \
         {
             'intrinsic':
-            {
-                'width': int(cam.resolution[0]),
-                'height': int(cam.resolution[1]),
-                'fx': float(cam.focal[0]),
-                'fy': float(cam.focal[1]),
-                'z_near': float(cam.z_near),
-                'z_far': float(cam.z_far)
-            },
+                {
+                    'cx': float(cam.cx),
+                    'cy': float(cam.cy),
+                    'fx': float(cam.fx),
+                    'fy': float(cam.fy),
+                    'z_near': float(cam.znear),
+                    'z_far': float(cam.zfar)
+                },
             'pose': pose.tolist()
         }
 
-    with open(full_path,'w') as fp:
+    with open(file_name, 'w') as fp:
         json.dump(cam_data, fp)
 
 
-# Save the scene as png image
-def render_scene_as_png(scene, output_folder, _static={'counter': 0}):
-    _static['counter'] += 1
-    file_name = 'color%s.png' % _static['counter']
-
-    folder = 'color'
-    folder = os.path.join(output_folder, folder)
-
-    if not os.path.exists(folder):
-        os.mkdir(folder)
-
-    path = os.path.join(folder, file_name)
-    png_image = scene.save_image()
-    file = open(path, 'wb')
-    file.write(png_image)
-    file.close()
+def show(color_img, depth_img):
+    fig = plt.figure()
+    plt.subplot(1, 2, 1)
+    plt.axis('off')
+    plt.imshow(color_img)
+    plt.subplot(1, 2, 2)
+    plt.axis('off')
+    plt.imshow(depth_img, cmap=plt.cm.gray_r)
+    plt.show()
+    plt.close(fig)
 
 
-def generate_data(model_file, output_folder, num=5):
-    count = 1
+def generate_images(obj_file, out_folder):
+
+    # create folders to save renderings
+    color_img_folder = 'color'
+    color_img_folder = os.path.join(out_folder, color_img_folder)
+    if not os.path.exists(color_img_folder):
+        os.mkdir(color_img_folder)
+
+    depth_img_folder = 'depth'
+    depth_img_folder = os.path.join(out_folder, depth_img_folder)
+    if not os.path.exists(depth_img_folder):
+        os.mkdir(depth_img_folder)
+
+    cam_folder = 'cam'
+    cam_folder = os.path.join(out_folder, cam_folder)
+    if not os.path.exists(cam_folder):
+        os.mkdir(cam_folder)
+
+    scene = create_scene(obj_file)
+
+    camera = pyrender.IntrinsicsCamera(fx=focal, fy=focal,
+                                       cx=render_img_width / 2,
+                                       cy=render_img_height / 2,
+                                       znear=znear, zfar=zfar)
+
+
+    count = 0
     axis = 'z'
-    degree_val = 0
-    mesh = trimesh.load(model_file, file_type='obj')
-    scene = mesh
-    # scene = mesh.scene()
+    deg = 0
+    trans = 0
+    while count < 10:
+        color_file = os.path.join(color_img_folder, 'color%s.png' % count)
+        depth_file = os.path.join(depth_img_folder, 'depth%s.png' % count)
+        cam_file = os.path.join(cam_folder, 'cam%s.json' % count)
 
-    # Define the camera and set the camera of the scene to custom camera
-    set_custom_camera(scene)
+        rot_matrix = Rotation.from_euler(axis, deg, degrees=True)
+        pose = np.eye(4)
+        pose[0:3, 0:3] = rot_matrix.as_dcm()
+        pose[:3, 3] = [0, 0, 1.5]
+        cam_node = scene.add(camera, pose=pose)
 
-    while count <= num:
-        render_scene_as_png(scene, output_folder)
-        save_camera(scene, output_folder)
-        degree_val -= 2
-        rotate_scene(scene, axis, degree_val)
+        # pyrender.Viewer(scene)
+        export_cam_to_json(camera, pose, cam_file)
+
+        r = pyrender.OffscreenRenderer(render_img_width, render_img_height)
+        color, depth = r.render(scene)
+        save_img(color, depth, color_file, depth_file)
+        show(color, depth)
+
+        scene.remove_node(cam_node)
+
+        deg -= 1
+        trans += 0.05
         count += 1
 
 
-###############################################################################
-# Command line interface.
-###############################################################################
-@click.command()
-@click.argument('obj_file',
-                type=click.Path(exists=True, dir_okay=True, readable=True))
-@click.option('--out_name',
-              type=click.Path(dir_okay=True, writable=True),
-              help='The result location to use. By default, use `renderings',
-              default='renderings')
-@click.option('--num_renderings',
-               type=click.INT,
-               help='Number of images to render. Default: 5',
-               default=5)
-def main(obj_file, out_name, num_renderings):
-    generate_data(obj_file, out_name, num_renderings)
-
-
 if __name__ == '__main__':
-    main()
+    # obj_file = 'data/04379243/142060f848466cad97ef9a13efb5e3f7/models/model_normalized.obj'
+    # output_folder = 'results/04379243/142060f848466cad97ef9a13efb5e3f7/renderings'
+    # obj_file = 'data/03001627/bdc892547cceb2ef34dedfee80b7006/models/model_normalized.obj'
+    # output_folder = 'results/03001627/bdc892547cceb2ef34dedfee80b7006/renderings'
+    obj_file = 'data/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/models/model_normalized.obj'
+    output_folder = 'results/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/renderings'
+    # obj_file = 'data/02747177/85d8a1ad55fa646878725384d6baf445/models/model_normalized.obj'
+    # output_folder = 'results/02747177/85d8a1ad55fa646878725384d6baf445/renderings'
+
+    generate_images(obj_file, output_folder)

@@ -86,3 +86,22 @@ class Camera:
 
             # extrinsic matrix will be the inverse of camera pose
             self._extrinsic = np.linalg.inv(self._pose)
+
+    def export_to_json(self, file_name):
+        pose = self._pose.flatten(order='F')
+        cam_data = \
+            {
+                'intrinsic':
+                    {
+                        'width': int(self._resolution[0]),
+                        'height': int(self._resolution[1]),
+                        'fx': float(self._focal[0]),
+                        'fy': float(self._focal[1]),
+                        'z_near': float(self._znear),
+                        'z_far': float(self._zfar)
+                    },
+                'pose': pose.tolist()
+            }
+
+        with open(file_name, 'w') as fp:
+            json.dump(cam_data, fp)
