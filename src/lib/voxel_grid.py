@@ -97,11 +97,12 @@ class VoxelGrid:
 
     def set_color(self, grid_coord, color):
         self.set_occupancy(grid_coord, is_occupied=1)
-        if np.all(self._color_grid[grid_coord[0], grid_coord[1], grid_coord[2], :] == 0):
-            self._color_grid[grid_coord[0], grid_coord[1], grid_coord[2], :] = color
-        else:
-            self._color_grid[grid_coord[0], grid_coord[1], grid_coord[2], :] += color
-            self._color_grid[grid_coord[0], grid_coord[1], grid_coord[2], :] //= 2
+        self._color_grid[grid_coord[0], grid_coord[1], grid_coord[2], :] = color
+        # if np.all(self._color_grid[grid_coord[0], grid_coord[1], grid_coord[2], :] == 0):
+        #     self._color_grid[grid_coord[0], grid_coord[1], grid_coord[2], :] = color
+        # else:
+        #     self._color_grid[grid_coord[0], grid_coord[1], grid_coord[2], :] += color
+        #     self._color_grid[grid_coord[0], grid_coord[1], grid_coord[2], :] //= 2
 
     # Saves the color grid of the voxel in a file
     # Occupancy grid is implicitly saved

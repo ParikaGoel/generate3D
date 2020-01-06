@@ -50,8 +50,8 @@ def save_camera(scene, output_folder, _static={'counter':0}):
         {
             'intrinsic':
             {
-                'width': int(cam.resolution[0]),
-                'height': int(cam.resolution[1]),
+                'cx': float(cam.resolution[0]/2),
+                'cy': float(cam.resolution[1]/2),
                 'fx': float(cam.focal[0]),
                 'fy': float(cam.focal[1]),
                 'z_near': float(cam.z_near),

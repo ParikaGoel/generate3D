@@ -11,7 +11,7 @@ from scipy.spatial.transform import Rotation
 
 def create_scene(obj_file):
     obj_mesh = trimesh.load(obj_file)
-    scene = pyrender.Scene(ambient_light=[1., 1., 1.], bg_color=[1., 1., 1.]) # bg = {0, 145, 255}
+    scene = pyrender.Scene(ambient_light=[1., 1., 1.], bg_color=[1., 1., 1.])  # bg = {0, 145, 255}
 
     if (isinstance(obj_mesh, trimesh.Trimesh)):
         mesh = pyrender.Mesh.from_trimesh(obj_mesh)
@@ -66,8 +66,7 @@ def show(color_img, depth_img):
     plt.close(fig)
 
 
-def generate_images(obj_file, out_folder):
-
+def generate_images(obj_file, out_folder, num_renderings):
     # create folders to save renderings
     color_img_folder = 'color'
     color_img_folder = os.path.join(out_folder, color_img_folder)
@@ -91,12 +90,11 @@ def generate_images(obj_file, out_folder):
                                        cy=render_img_height / 2,
                                        znear=znear, zfar=zfar)
 
-
     count = 0
     axis = 'z'
     deg = 0
     trans = 0
-    while count < 10:
+    while count < num_renderings:
         color_file = os.path.join(color_img_folder, 'color%s.png' % count)
         depth_file = os.path.join(depth_img_folder, 'depth%s.png' % count)
         cam_file = os.path.join(cam_folder, 'cam%s.json' % count)
@@ -104,7 +102,7 @@ def generate_images(obj_file, out_folder):
         rot_matrix = Rotation.from_euler(axis, deg, degrees=True)
         pose = np.eye(4)
         pose[0:3, 0:3] = rot_matrix.as_dcm()
-        pose[:3, 3] = [0, 0, 1.5]
+        pose[:3, 3] = [0, 0, 1.2]
         cam_node = scene.add(camera, pose=pose)
 
         # pyrender.Viewer(scene)
@@ -127,9 +125,9 @@ if __name__ == '__main__':
     # output_folder = 'results/04379243/142060f848466cad97ef9a13efb5e3f7/renderings'
     # obj_file = 'data/03001627/bdc892547cceb2ef34dedfee80b7006/models/model_normalized.obj'
     # output_folder = 'results/03001627/bdc892547cceb2ef34dedfee80b7006/renderings'
-    obj_file = 'data/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/models/model_normalized.obj'
-    output_folder = 'results/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/renderings'
-    # obj_file = 'data/02747177/85d8a1ad55fa646878725384d6baf445/models/model_normalized.obj'
-    # output_folder = 'results/02747177/85d8a1ad55fa646878725384d6baf445/renderings'
+    # obj_file = 'data/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/models/model_normalized.obj'
+    # output_folder = 'results/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/renderings'
+    obj_file = 'data/02747177/85d8a1ad55fa646878725384d6baf445/models/model_normalized.obj'
+    output_folder = 'results/02747177/85d8a1ad55fa646878725384d6baf445/renderings'
 
-    generate_images(obj_file, output_folder)
+    generate_images(obj_file, output_folder, 10)

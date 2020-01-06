@@ -11,10 +11,10 @@ def load_camera(json_file):
 
 # For now the center is always at the center of the image, so half of the resolution
 class Camera:
-    def __init__(self, resolution=[512, 512], focal=[525.0, 525.0], z_near=0.01, z_far=1000.0):
+    def __init__(self, center=[256, 256], focal=[525.0, 525.0], z_near=0.01, z_far=1000.0):
         self._focal = focal
-        self._resolution = resolution
-        self._center = [(res / 2) for res in resolution]
+        self._resolution = [(c * 2) for c in center]
+        self._center = center
         self._znear = z_near
         self._zfar = z_far
         self._extrinsic = np.identity(4)  # extrinsic matrix that gives the transformation from world to camera system
@@ -63,14 +63,14 @@ class Camera:
             data = json.load(camera_file)
 
             # read the intrinsic parameters
-            self._resolution[0] = data['intrinsic']['width']
-            self._resolution[1] = data['intrinsic']['height']
+            self._center[0] = data['intrinsic']['cx']
+            self._center[1] = data['intrinsic']['cy']
 
             self._focal[0] = data['intrinsic']['fx']
             self._focal[1] = data['intrinsic']['fy']
             self._znear = data['intrinsic']['z_near']
             self._zfar = data['intrinsic']['z_far']
-            self._center = [(res / 2) for res in self._resolution]
+            self._resolution = [(c * 2) for c in self._center]
 
             # set the intrinsic matrix
             self._intrinsic[0][0] = self._focal[0]
@@ -93,8 +93,8 @@ class Camera:
             {
                 'intrinsic':
                     {
-                        'width': int(self._resolution[0]),
-                        'height': int(self._resolution[1]),
+                        'cx': int(self._center[0]),
+                        'cy': int(self._center[1]),
                         'fx': float(self._focal[0]),
                         'fy': float(self._focal[1]),
                         'z_near': float(self._znear),
