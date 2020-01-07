@@ -102,7 +102,7 @@ def generate_images(obj_file, out_folder, num_renderings):
         rot_matrix = Rotation.from_euler(axis, deg, degrees=True)
         pose = np.eye(4)
         pose[0:3, 0:3] = rot_matrix.as_dcm()
-        pose[:3, 3] = [0, 0, 1.2]
+        pose[:3, 3] = [0.0, 0.0, cam_depth]
         cam_node = scene.add(camera, pose=pose)
 
         # pyrender.Viewer(scene)
@@ -121,13 +121,13 @@ def generate_images(obj_file, out_folder, num_renderings):
 
 
 if __name__ == '__main__':
-    # obj_file = 'data/04379243/142060f848466cad97ef9a13efb5e3f7/models/model_normalized.obj'
-    # output_folder = 'results/04379243/142060f848466cad97ef9a13efb5e3f7/renderings'
+    obj_file = 'data/04379243/142060f848466cad97ef9a13efb5e3f7/models/model_normalized.obj'
+    output_folder = 'results/04379243/142060f848466cad97ef9a13efb5e3f7/renderings'
     # obj_file = 'data/03001627/bdc892547cceb2ef34dedfee80b7006/models/model_normalized.obj'
     # output_folder = 'results/03001627/bdc892547cceb2ef34dedfee80b7006/renderings'
     # obj_file = 'data/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/models/model_normalized.obj'
     # output_folder = 'results/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/renderings'
-    obj_file = 'data/02747177/85d8a1ad55fa646878725384d6baf445/models/model_normalized.obj'
-    output_folder = 'results/02747177/85d8a1ad55fa646878725384d6baf445/renderings'
+    # obj_file = 'data/02747177/85d8a1ad55fa646878725384d6baf445/models/model_normalized.obj'
+    # output_folder = 'results/02747177/85d8a1ad55fa646878725384d6baf445/renderings'
 
     generate_images(obj_file, output_folder, 10)

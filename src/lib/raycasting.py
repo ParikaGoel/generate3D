@@ -39,14 +39,14 @@ def raycast(voxel_grid, cam, image):
             # test projecting only one layer of the image
             # grid_coord = voxel_grid.get_grid_coord(ray)
             # if grid_coord is not None:
-            #     if not np.all(image[v, u] == 255):
+            #     if not np.all(image[v, u] > 200):
             #         voxel_grid.set_occupancy(grid_coord, 1)
             #         voxel_grid.set_color(grid_coord, image[v, u])
 
             while voxel_grid.contains_global_coord(ray):
                 grid_coord = voxel_grid.get_grid_coord(ray)
                 if grid_coord is not None:
-                    if not np.all(image[v, u] == 255):
+                    if not np.all(image[v, u] > 200):
                         voxel_grid.set_occupancy(grid_coord, 1)
                         voxel_grid.set_color(grid_coord, image[v, u])
 
@@ -79,7 +79,7 @@ if __name__ == '__main__':
     # stool
     cam_file = 'results/04379243/142060f848466cad97ef9a13efb5e3f7/renderings/cam/cam0.json'
     image_file = 'results/04379243/142060f848466cad97ef9a13efb5e3f7/renderings/color/color0.png'
-    voxel_file = 'results/04379243/142060f848466cad97ef9a13efb5e3f7/raycasted_voxel/voxel0_stool.ply'
+    voxel_file = 'results/04379243/142060f848466cad97ef9a13efb5e3f7/raycasted_voxel/voxel0_stool_threshold.ply'
     voxel_txt_file = 'results/04379243/142060f848466cad97ef9a13efb5e3f7/text/voxelinfo.txt'
     img_txt_file = 'results/04379243/142060f848466cad97ef9a13efb5e3f7/text/imginfo.txt'
 
@@ -94,6 +94,6 @@ if __name__ == '__main__':
     raycast(voxel_grid, cam, np_img)
 
     voxel_grid.save_vox(voxel_txt_file)
-    
+
     # # Since we have done raycasting in camera system, apply the cam to world transform while saving the voxel
     voxel_grid.to_mesh(voxel_file, cam.pose)

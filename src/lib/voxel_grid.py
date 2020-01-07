@@ -1,4 +1,5 @@
 import numpy as np
+from config import *
 
 
 class VoxelGrid:
@@ -162,7 +163,7 @@ class VoxelGrid:
 def create_voxel_grid(cam):
     grid_size = abs(cam.z_far - cam.z_near)
     voxel_min_bound = np.array([-grid_size / 2, -grid_size / 2, -cam.z_near])
-    voxel_dim = 32
+    voxel_dim = voxel_res
     voxel_grid = VoxelGrid(voxel_min_bound, voxel_dim, grid_size)
     print("Min bound: ", voxel_grid.min_bound)
     print("Max bound: ", voxel_grid.max_bound)
