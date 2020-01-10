@@ -23,6 +23,7 @@ void write_ply(const std::string & filename, PlyMesh &mesh);
 
 int vox2mesh(std::string vox_file,
              std::string ply_file,
+             std::string txt_file,
              bool is_unitless = false,
              bool redcenter = false,
              std::string cmap = "jet",

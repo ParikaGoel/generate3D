@@ -97,8 +97,29 @@ void write_ply(const std::string & filename, PlyMesh &mesh) {
 	ply_file.write(outstream_binary, false);
 }
 
+void write_txt(const std::string& filename, voxel &vox){
+
+    std::ofstream fp;
+    fp.open(filename);
+
+	for (int k = 0; k < vox.dims[2]; k++) {
+		for (int j = 0; j < vox.dims[1]; j++) {
+			for (int i = 0; i < vox.dims[0]; i++) {
+				int index = k*vox.dims[1]*vox.dims[0] + j*vox.dims[0] + i;
+				if (vox.occ_val[index] == 1) {
+					// writing a default color value for now
+					fp << i << " " << j << " " << k << " 0 169 255\n";
+				}
+			}
+		}
+	}
+
+	fp.close();
+}
+
 int vox2mesh(std::string vox_file,
         std::string ply_file,
+        std::string txt_file,
         bool is_unitless,
         bool redcenter,
         std::string cmap,
@@ -136,6 +157,7 @@ int vox2mesh(std::string vox_file,
 	get_position_and_color_from_vox(vox, mesh, voxelsize, trunc, cmap);
 
 	write_ply(ply_file, mesh);
+    write_txt(txt_file, vox);
 
 	return 0;
 }

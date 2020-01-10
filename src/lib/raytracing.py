@@ -1,9 +1,10 @@
-import json
 import trimesh
+import JSONHelper
 import numpy as np
 from camera import *
 from PIL import Image
 from voxel_grid import *
+import matplotlib.pyplot as plt
 
 
 # Debugging helper function : saves the color values with corresponding pixel coordinates
@@ -26,7 +27,8 @@ def raycast(voxel_grid, cam, image):
     cy = cam.center[1]
     focal = cam.focal[0]
 
-    depth = 1.2  #-cam.z_near
+    depth = cam.z_near
+
     for u in range(width):
         for v in range(height):
             x = (u - cx) * depth / focal
@@ -36,7 +38,7 @@ def raycast(voxel_grid, cam, image):
             ray_length = np.sqrt(np.sum(ray ** 2))
             unit_ray = ray / ray_length
 
-            # test projecting only one layer of the image
+            # # test projecting only one layer of the image
             # grid_coord = voxel_grid.get_grid_coord(ray)
             # if grid_coord is not None:
             #     if not np.all(image[v, u] > 200):
@@ -55,39 +57,22 @@ def raycast(voxel_grid, cam, image):
 
 
 if __name__ == '__main__':
-    # trashbin
-    # cam_file = 'results/02747177/85d8a1ad55fa646878725384d6baf445/renderings/cam/cam1.json'
-    # image_file = 'results/02747177/85d8a1ad55fa646878725384d6baf445/renderings/color/color1.png'
-    # voxel_file = 'results/02747177/85d8a1ad55fa646878725384d6baf445/raycasted_voxel/voxel0_depth_bin.ply'
-    # voxel_txt_file = 'results/02747177/85d8a1ad55fa646878725384d6baf445/text/voxelinfo.txt'
-    # img_txt_file = 'results/02747177/85d8a1ad55fa646878725384d6baf445/text/imginfo.txt'
-
-    # bench
-    # cam_file = 'results/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/renderings/cam/cam1.json'
-    # image_file = 'results/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/renderings/color/color1.png'
-    # voxel_file = 'results/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/raycasted_voxel/voxel0_bench.ply'
-    # voxel_txt_file = 'results/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/text/voxelinfo.txt'
-    # img_txt_file = 'results/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/text/imginfo.txt'
-
-    # chair
-    # cam_file = 'results/03001627/bdc892547cceb2ef34dedfee80b7006/renderings/cam/cam0.json'
-    # image_file = 'results/03001627/bdc892547cceb2ef34dedfee80b7006/renderings/color/color0.png'
-    # voxel_file = 'results/03001627/bdc892547cceb2ef34dedfee80b7006/raycasted_voxel/voxel0_chair.ply'
-    # voxel_txt_file = 'results/03001627/bdc892547cceb2ef34dedfee80b7006/text/voxelinfo.txt'
-    # img_txt_file = 'results/03001627/bdc892547cceb2ef34dedfee80b7006/text/imginfo.txt'
-
     # stool
-    cam_file = 'results/04379243/142060f848466cad97ef9a13efb5e3f7/renderings/cam/cam0.json'
-    image_file = 'results/04379243/142060f848466cad97ef9a13efb5e3f7/renderings/color/color0.png'
-    voxel_file = 'results/04379243/142060f848466cad97ef9a13efb5e3f7/raycasted_voxel/voxel0_stool_threshold.ply'
-    voxel_txt_file = 'results/04379243/142060f848466cad97ef9a13efb5e3f7/text/voxelinfo.txt'
-    img_txt_file = 'results/04379243/142060f848466cad97ef9a13efb5e3f7/text/imginfo.txt'
+    catid = "04379243"
+    id = "142060f848466cad97ef9a13efb5e3f7"
+
+    params = JSONHelper.read("./parameters.json")
+
+    cam_file = params["shapenet_renderings"] + catid + "/" + id + "/cam/cam0.json"
+    image_file = params["shapenet_renderings"] + catid + "/" + id + "/color/color0.png"
+    voxel_file = params["shapenet_raytraced"] + catid + "/" + id + ".ply"
+    voxel_txt_file = params["shapenet_raytraced"] + catid + "/" + id + ".txt"
 
     im = Image.open(image_file)
     np_img = np.array(im)
     np_img = np_img[:, :, 0:3]
 
-    save_image_info_txt(np_img, img_txt_file)
+    # save_image_info_txt(np_img, img_txt_file)
 
     cam = load_camera(cam_file)
     voxel_grid = create_voxel_grid(cam)

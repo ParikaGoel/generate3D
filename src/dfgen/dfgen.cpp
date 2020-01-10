@@ -94,8 +94,9 @@ int dfgen(std::string infile,
     vox.occ_val.resize(phi_grid.a.size());
 	for(unsigned int i = 0; i < phi_grid.a.size(); ++i) {
 		vox.sdf[i] = phi_grid.a[i]*dim;
-		if(vox.sdf[i] <= 0)
+		if(std::abs(vox.sdf[i]) <= 1.0f * vox.res){
 		    vox.occ_val[i] = 1;
+		    }
 		else
 		    vox.occ_val[i] = 0;
 	}

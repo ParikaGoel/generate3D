@@ -116,7 +116,9 @@ class VoxelGrid:
                 np.savetxt(f, data, fmt='%d %d %d %d %d %d', delimiter=' ')
 
     def load_vox(self, filename):
-        voxel = np.loadtxt(filename)
+        voxel = np.loadtxt(filename,dtype=int)
+        self._occ_grid = np.zeros((32, 32, 32), dtype=int)
+        self._color_grid = np.zeros((32, 32, 32, 3), dtype=int)
         for data in voxel:
             grid_coord = np.array((data[0], data[1], data[2])).astype(int)
             color = np.array((data[3], data[4], data[5])).astype(int)
@@ -142,11 +144,14 @@ class VoxelGrid:
                 # since we are looking in -ve z direction
                 vertex[2] = -vertex[2]
                 vertex += self._min_bound
-                if transform is not None:
-                    rotation = transform[0:3, 0:3]
-                    translation = transform[0:3, 3]
-                    vertex = np.matmul(rotation, vertex) + translation
+                translation = [0.0, 0.0, 1.0]
+                vertex = vertex + translation
+                # if transform is not None:
+                #     rotation = transform[0:3, 0:3]
+                #     translation = transform[0:3, 3]
+                #     vertex = np.matmul(rotation, vertex) + translation
                 color = self._color_grid[i, j, k, :]
+                # color = [178, 120, 33]
                 vertex = np.append(vertex, color)
                 vertex = list(vertex)
                 verts.append(vertex)
@@ -163,7 +168,7 @@ class VoxelGrid:
 def create_voxel_grid(cam):
     grid_size = abs(cam.z_far - cam.z_near)
     voxel_min_bound = np.array([-grid_size / 2, -grid_size / 2, -cam.z_near])
-    voxel_dim = voxel_res
+    voxel_dim = vox_dim
     voxel_grid = VoxelGrid(voxel_min_bound, voxel_dim, grid_size)
     print("Min bound: ", voxel_grid.min_bound)
     print("Max bound: ", voxel_grid.max_bound)
