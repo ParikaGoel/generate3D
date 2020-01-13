@@ -7,6 +7,7 @@ znear = 0.5
 zfar = 1.5
 focal = 525.0
 cam_depth = 1.2
+color_bg = [1., 1., 1.]
 
 # voxel
 vox_dim = 32

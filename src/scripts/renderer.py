@@ -1,4 +1,6 @@
 import os
+import glob
+import pathlib
 import trimesh
 import pyrender
 import numpy as np
@@ -13,7 +15,7 @@ import JSONHelper
 
 def create_scene(obj_file):
     obj_mesh = trimesh.load(obj_file)
-    scene = pyrender.Scene(ambient_light=[1., 1., 1.], bg_color=[1., 1., 1.])  # bg = {0, 145, 255}
+    scene = pyrender.Scene(ambient_light=[1., 1., 1.], bg_color=color_bg)  # bg = {0, 145, 255}
 
     if (isinstance(obj_mesh, trimesh.Trimesh)):
         mesh = pyrender.Mesh.from_trimesh(obj_mesh)
@@ -114,10 +116,10 @@ def generate_images(obj_file, out_folder, num_renderings):
 
         r = pyrender.OffscreenRenderer(render_img_width, render_img_height)
         color, depth = r.render(scene)
-        mask = depth != 0
-        #mask[:,:,:,None] * color
+        # mask = depth != 0
+        # color = mask[:, :, None] * color
         save_img(color, depth, color_file, depth_file)
-        show(color, depth)
+        # show(color, depth)
 
         scene.remove_node(cam_node)
 
@@ -128,23 +130,14 @@ def generate_images(obj_file, out_folder, num_renderings):
 
 if __name__ == '__main__':
     num_renderings = 10
-    # stool
-    catid = "04379243"
-    id = "142060f848466cad97ef9a13efb5e3f7"
 
     params = JSONHelper.read("./parameters.json")
 
-    output_folder = params["shapenet_renderings"] + catid + "/" + id
-    obj_file = params["shapenet"] + catid + "/" + id + "/models/model_normalized.obj"
+    for f in glob.glob(params["shapenet"] + "/**/*/models/model_normalized.obj"):
+        catid_cad = f.split("/", 6)[4]
+        id_cad = f.split("/", 6)[5]
 
+        outdir = params["shapenet_renderings"] + "/" + catid_cad + "/" + id_cad
+        pathlib.Path(outdir).mkdir(parents=True, exist_ok=True)
 
-    # obj_file = 'data/04379243/142060f848466cad97ef9a13efb5e3f7/models/model_normalized.obj'
-    # output_folder = 'results/04379243/142060f848466cad97ef9a13efb5e3f7/renderings'
-    # obj_file = 'data/03001627/bdc892547cceb2ef34dedfee80b7006/models/model_normalized.obj'
-    # output_folder = 'results/03001627/bdc892547cceb2ef34dedfee80b7006/renderings'
-    # obj_file = 'data/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/models/model_normalized.obj'
-    # output_folder = 'results/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/renderings'
-    # obj_file = 'data/02747177/85d8a1ad55fa646878725384d6baf445/models/model_normalized.obj'
-    # output_folder = 'results/02747177/85d8a1ad55fa646878725384d6baf445/renderings'
-
-    generate_images(obj_file, output_folder, num_renderings)
+        generate_images(f, outdir, num_renderings)

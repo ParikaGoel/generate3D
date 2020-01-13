@@ -1,18 +1,36 @@
 # shapeComplete
 
------------------------- To generate the voxelized mesh of shapenet models ----
-main.cpp
-make command
-command : ./bin/complete3D /home/parika/WorkingDir/complete3D/data/02828884/1a40eaf5919b1b3f3eaa2b95b99dae6/models/model_normalized.obj 32 1 1
+## Get started
 
------------------------- Rendering images from object file -------------------
-Run renderer.py. Provide the path of the obj file and the output folder where
-you wish to save the rendered images. Also provide how many images you want to render
+1. Clone repo:
 
------------------------ Generating raycasted voxels --------------------------
-We need initial raycasted voxels to provide as input to the model. 
-For that run raycasting.py. Check the main function of this python file and provide 
-all the required paths
+```git clone https://github.com/skanti/Scan2CAD.git```
 
------------------------ Training the model -----------------------------------
-model.py contains the model. trainer.py handles training of the model
+2. Ask for dataset: (You will need *ShapeNet*). 
+
+3. Copy dataset content into `./Assets/`.
+
+4. Compile `c++` programs
+
+```
+cd {vox2mesh, dfgen}
+make
+```
+
+5. Voxelize CADs (shapenet):
+
+```python3 ./src/scripts/CADVoxelization.py```
+
+6. Rendering images of the shapenet model from different viewpoints
+
+``` python3 ./src/scripts/renderer.py ```
+
+7. Generating raycasted voxels for input to the network
+(For now the model id and category id are hardcoded in python file)
+
+``` python3 ./src/scripts/raytracing.py ```
+
+8. Training the network
+(For now the model id and category id are hardcoded in python file)
+
+``` python3 ./src/scripts/trainer.py ```
