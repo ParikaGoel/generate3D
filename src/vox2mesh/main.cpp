@@ -4,43 +4,51 @@
 #include <chrono>
 #include <unordered_map>
 #include <iostream>
+#include <string>
 
 #include <eigen3/Eigen/Dense>
-#include "box3d.h"
-#include "voxel_loader.h"
-#include "mesh_loader.h"
+#include "Box3D.h"
+#include "LoaderVOX.h"
+#include "LoaderMesh.h"
 #include "SE3.h"
-#include "color_map.h"
-#include <vox2mesh.h>
+#include "Colormap.h"
+#include "args.hxx"
+
+struct InputArgs {
+	std::string in;
+	std::string out;
+	bool is_unitless;
+	bool redcenter;
+	std::string cmap;
+	float trunc;
+} inargs;
+
 
 Eigen::MatrixXf box_vertices, box_normals;
 Eigen::Matrix<uint32_t, -1, -1> box_elements;
 
-void get_position_and_color_from_vox(
-        voxel &vox, PlyMesh &mesh,
-        Eigen::Vector3f voxelsize,
-        float trunc,
-        std::string cmap) {
+struct PlyMesh {
+	Eigen::Matrix<float, -1, -1> V;
+	Eigen::Matrix<float, -1, -1> N;
+	Eigen::Matrix<uint8_t, -1, -1> C;
+	Eigen::Matrix<uint32_t, -1, -1> F;
+};
 
+void get_position_and_color_from_vox(Vox &vox, PlyMesh &mesh, Eigen::Vector3f voxelsize) {
 	std::vector<Eigen::Vector3f> positions;
 	std::vector<Eigen::Matrix<uint8_t, 3, 1>> colors;
 	int n_voxels = 0;
-
-    if (vox.pdf.size() == 0) {
-        vox.pdf.resize(vox.sdf.size());
-        std::fill(vox.pdf.begin(), vox.pdf.end(), 1);
-    }
-
+	std::cout<< "Voxel grid 2 world\n" << vox.grid2world << "\n";
 	for (int k = 0; k < vox.dims[2]; k++) {
 		for (int j = 0; j < vox.dims[1]; j++) {
 			for (int i = 0; i < vox.dims[0]; i++) {
 				int index = k*vox.dims[1]*vox.dims[0] + j*vox.dims[0] + i;
-				if (std::abs(vox.sdf[index]) <= trunc*vox.res) {
+				if (std::abs(vox.sdf[index]) <= inargs.trunc*vox.res) {
 					Eigen::Vector3f p;
 					p = (vox.grid2world*Eigen::Vector4f(i, j, k, 1)).topRows(3);
 					positions.push_back(p);
 					Eigen::Vector3f color;
-					ColorMap::colormap(vox.pdf[index], color, cmap);
+					ColorMap::colormap(vox.pdf[index], color, inargs.cmap);
 					colors.push_back((255.0f*color).cast<uint8_t>());
 					//colors.push_back(Eigen::Vector3f(255, 0, 0));
 					n_voxels++;
@@ -48,7 +56,7 @@ void get_position_and_color_from_vox(
 			}	
 		}	
 	}
-
+	
 	int n_verts_per_voxel = box_vertices.cols();
 	int n_elems_per_voxel = box_elements.cols();
 	std::cout << "n_voxels: " << n_voxels << std::endl;
@@ -58,8 +66,11 @@ void get_position_and_color_from_vox(
 	mesh.N.resize(3, n_voxels*n_verts_per_voxel);
 	mesh.F.resize(3, n_voxels*n_elems_per_voxel);
 
+    std::cout << "Voxel resolution : " << vox.res << "\n";
+    std::cout << "Voxel size : " << voxelsize << "\n";
 	Eigen::Vector3f res;
 	res = 0.45*voxelsize*vox.res;
+	std::cout << "Resolution : " << res << "\n";
 
 	for (int i = 0; i < n_voxels; i++) {
 		Eigen::Vector3f p = positions[i];
@@ -69,7 +80,26 @@ void get_position_and_color_from_vox(
 		mesh.N.block(0, i*n_verts_per_voxel, 3, n_verts_per_voxel) = box_normals;
 		mesh.F.block(0, i*n_elems_per_voxel, 3, n_elems_per_voxel) = box_elements + Eigen::Matrix<uint32_t, -1, -1>::Constant(3, n_elems_per_voxel, i*n_verts_per_voxel);
 	}
+}
 
+void write_txt(const std::string & filename, Vox &vox){
+    std::ofstream out;
+	out.open(filename);
+	if (out.fail()) throw std::runtime_error("failed to open " + filename);
+
+	for (int k = 0; k < vox.dims[2]; k++) {
+		for (int j = 0; j < vox.dims[1]; j++) {
+			for (int i = 0; i < vox.dims[0]; i++) {
+				int index = k*vox.dims[1]*vox.dims[0] + j*vox.dims[0] + i;
+				if (std::abs(vox.sdf[index]) <= inargs.trunc*vox.res) {
+					Eigen::Vector3f color;
+					ColorMap::colormap(vox.pdf[index], color, inargs.cmap);
+					Eigen::Matrix<uint32_t, 3, 1> colorInt((255.0f*color).cast<uint32_t>());
+					out << i << " " << j << " " << k << " " << colorInt[0] << " " << colorInt[1] << " " << colorInt[2] << "\n";
+				}
+			}
+		}
+	}
 }
 
 void write_ply(const std::string & filename, PlyMesh &mesh) {
@@ -97,41 +127,49 @@ void write_ply(const std::string & filename, PlyMesh &mesh) {
 	ply_file.write(outstream_binary, false);
 }
 
-void write_txt(const std::string& filename, voxel &vox){
+void parse_args(int argc, char** argv) {
+	args::ArgumentParser parser("This is a test program.", "This goes after the options.");
+	args::Group allgroup(parser, "", args::Group::Validators::All);
 
-    std::ofstream fp;
-    fp.open(filename);
+	args::ValueFlag<std::string> in(allgroup, "bunny.vox", "vox file", {"in"});
+	args::ValueFlag<std::string> out(allgroup, "bunny.ply", "out file", {"out"});
+	args::ValueFlag<bool> is_unitless(parser, "false", "normalize voxel grid or no units?", {"is_unitless"}, false);
+	args::ValueFlag<bool> redcenter(parser, "false", "red center in grid?", {"redcenter"}, false);
+	args::ValueFlag<std::string> cmap(parser, "jet, inferno, magma, viridis, gray2red, beige2red", "color map format", {"cmap"}, "jet");
+	args::ValueFlag<float> trunc(parser, "1.0", "truncation for visible voxels", {"trunc"}, 1.0);
 
-	for (int k = 0; k < vox.dims[2]; k++) {
-		for (int j = 0; j < vox.dims[1]; j++) {
-			for (int i = 0; i < vox.dims[0]; i++) {
-				int index = k*vox.dims[1]*vox.dims[0] + j*vox.dims[0] + i;
-				if (vox.occ_val[index] == 1) {
-					// writing a default color value for now
-					fp << i << " " << j << " " << k << " 0 169 255\n";
-				}
-			}
-		}
+
+	try {
+		parser.ParseCLI(argc, argv);
+	} catch (args::ParseError e) {
+		std::cerr << e.what() << std::endl;
+		std::cerr << parser;
+		exit(1);
+	} catch (args::ValidationError e) {
+		std::cerr << e.what() << std::endl;
+		std::cerr << parser;
+		exit(1);
 	}
 
-	fp.close();
-}
+	inargs.in = args::get(in);
+	inargs.out = args::get(out);
+	inargs.cmap = args::get(cmap);
+	inargs.redcenter = args::get(redcenter);
+	inargs.trunc = args::get(trunc);
+	inargs.is_unitless = args::get(is_unitless);
 
-int vox2mesh(std::string vox_file,
-        std::string ply_file,
-        std::string txt_file,
-        bool is_unitless,
-        bool redcenter,
-        std::string cmap,
-        float trunc){
+};
+
+int main(int argc, char** argv) {
+   	parse_args(argc, argv); 
 	Box3D::create(box_vertices, box_normals, box_elements);
 
-	voxel vox;
+	Vox vox;
 	Eigen::Vector3f voxelsize(1, 1, 1);
 
-	vox = load_vox(vox_file);
+	vox = load_vox(inargs.in);
 
-	if (is_unitless) {
+	if (inargs.is_unitless) {
 		Eigen::Vector3f t;
 		Eigen::Quaternionf q;
 		Eigen::Vector3f s;
@@ -142,7 +180,7 @@ int vox2mesh(std::string vox_file,
 	if (vox.pdf.size() == 0) {
 		vox.pdf.resize(vox.sdf.size());
 		std::fill(vox.pdf.begin(), vox.pdf.end(), 0);
-		if (redcenter) {
+		if (inargs.redcenter) {
 			int c = vox.dims(0)/2;
 			int dim = vox.dims(0);
 			int w = 1;
@@ -154,10 +192,16 @@ int vox2mesh(std::string vox_file,
 	}
 
 	PlyMesh mesh;
-	get_position_and_color_from_vox(vox, mesh, voxelsize, trunc, cmap);
+	std::map<std::string, Eigen::MatrixXf*> hashmap;
+	get_position_and_color_from_vox(vox, mesh, voxelsize);
 
-	write_ply(ply_file, mesh);
+	std::string txt_file = inargs.out;
+	txt_file.replace(txt_file.rfind("."),4,".txt");
+
     write_txt(txt_file, vox);
+	write_ply(inargs.out, mesh);
+
+
 
 	return 0;
 }

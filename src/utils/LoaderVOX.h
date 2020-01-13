@@ -9,16 +9,15 @@
 #include <eigen3/Eigen/Dense>
 
 
-struct voxel {
+struct Vox {
 	Eigen::Vector3i dims;
 	float res;
 	Eigen::Matrix4f grid2world;
 	std::vector<float> sdf;
 	std::vector<float> pdf;
-	std::vector<size_t> occ_val; // occupancy grid
 };
 
-inline static voxel load_vox(std::string filename) {
+inline static Vox load_vox(std::string filename) {
 	
 	std::ifstream f(filename, std::ios::binary);
 	assert(f.is_open());
@@ -31,7 +30,7 @@ inline static voxel load_vox(std::string filename) {
 	else if (extension == "sdf")
 		is_row_major = true;
 	
-	voxel vox;
+	Vox vox;
 
 	f.read((char*)vox.dims.data(), 3*sizeof(int32_t));
 	f.read((char*)&vox.res, sizeof(float));
@@ -48,18 +47,12 @@ inline static voxel load_vox(std::string filename) {
 		vox.pdf.resize(n_elems);
 		f.read((char*)vox.pdf.data(), n_elems*sizeof(float));
 	}
-
-    if(f && f.peek() != EOF) {
-        vox.occ_val.resize(n_elems);
-        f.read((char*)vox.occ_val.data(), n_elems*sizeof(size_t));
-    }
-
 	f.close();	
 
 	return vox;
 }
 
-inline static void save_vox(std::string filename, voxel &vox) {
+inline static void save_vox(std::string filename, Vox &vox) {
 	std::ofstream f;
 	f.open(filename, std::ofstream::out | std::ios::binary);
 	assert(f.is_open());
@@ -72,8 +65,6 @@ inline static void save_vox(std::string filename, voxel &vox) {
 		f.write((char*)vox.sdf.data(), n_size*sizeof(float));
 	if (vox.pdf.size() > 0)
 		f.write((char*)vox.pdf.data(), n_size*sizeof(float));
-    if (vox.occ_val.size() > 0)
-        f.write((char*)vox.occ_val.data(), n_size*sizeof(size_t));
 	f.close();
 	
 }

@@ -126,11 +126,11 @@ class VoxelGrid:
             self.set_occupancy(grid_coord, is_occupied=1)
 
     def to_mesh(self, filename, transform=None):
-        cube_verts = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [0, 1, 1], [1, 0, 0], [1, 0, 1], [1, 1, 0],
-                               [1, 1, 1]])  # 8 points
+        cube_verts = np.array([[-1.0, -1.0, 1.0], [1.0, -1.0, 1.0], [1.0, 1.0, 1.0], [-1.0, 1.0, 1.0],
+                           [-1.0, -1.0, -1.0], [1.0, -1.0, -1.0], [1.0, 1.0, -1.0],[-1.0, 1.0, -1.0]])  # 8 points
 
-        cube_faces = np.array([[0, 1, 2], [1, 3, 2], [2, 3, 6], [3, 7, 6], [0, 2, 6], [0, 6, 4], [0, 5, 1],
-                               [0, 4, 5], [6, 7, 5], [6, 5, 4], [1, 7, 3], [1, 5, 7]])  # 6 faces (12 triangles)
+        cube_faces = np.array([[0, 1, 2], [2, 3, 0], [1, 5, 6], [6, 2, 1], [7, 6, 5], [5, 4, 7],
+                           [4, 0, 3], [3, 7, 4], [4, 5, 1], [1, 0, 4], [3, 2, 6], [6, 7, 3]])  # 6 faces (12 triangles)
 
         verts = []
         faces = []
@@ -139,7 +139,7 @@ class VoxelGrid:
         positions = np.where(self._occ_grid == 1)
         for i, j, k in zip(*positions):
             for cube_vert in cube_verts:
-                vertex = (cube_vert + np.array([i, j, k])).astype(float)
+                vertex = (cube_vert * 0.45 + np.array([i, j, k])).astype(float)
                 vertex *= self._voxel_scale
                 # since we are looking in -ve z direction
                 vertex[2] = -vertex[2]
@@ -174,6 +174,46 @@ def create_voxel_grid(cam):
     print("Max bound: ", voxel_grid.max_bound)
     print("Voxel Scale: ", voxel_grid.voxel_scale)
     return voxel_grid
+
+def txt_to_mesh(txt_file, ply_file, grid_size = None):
+    cube_verts = np.array([[-1.0, -1.0, 1.0], [1.0, -1.0, 1.0], [1.0, 1.0, 1.0], [-1.0, 1.0, 1.0],
+                           [-1.0, -1.0, -1.0], [1.0, -1.0, -1.0], [1.0, 1.0, -1.0],[-1.0, 1.0, -1.0]])  # 8 points
+
+    cube_faces = np.array([[0, 1, 2], [2, 3, 0], [1, 5, 6], [6, 2, 1], [7, 6, 5], [5, 4, 7],
+                           [4, 0, 3], [3, 7, 4], [4, 5, 1], [1, 0, 4], [3, 2, 6], [6, 7, 3]])  # 6 faces (12 triangles)
+
+    verts = []
+    faces = []
+    curr_vertex = 0
+
+    if grid_size is None:
+        grid_size = 1
+
+    min_bound = np.array([-grid_size/2,-grid_size/2,-grid_size/2])
+    voxel_scale = grid_size / vox_dim
+
+    voxel = np.loadtxt(txt_file, dtype=int)
+    for data in voxel:
+        grid_coord = np.array((data[0], data[1], data[2])).astype(int)
+        color = np.array((data[3], data[4], data[5])).astype(int)
+        i = grid_coord[0]
+        j = grid_coord[1]
+        k = grid_coord[2]
+        for cube_vert in cube_verts:
+            vertex = (cube_vert * 0.45 + np.array([i, j, k])).astype(float)
+            vertex *= voxel_scale
+            vertex += min_bound
+            vertex = np.append(vertex, color)
+            vertex = list(vertex)
+            verts.append(vertex)
+
+        for cube_face in cube_faces:
+            face = curr_vertex + cube_face
+            faces.append(list(face))
+
+        curr_vertex += len(cube_verts)
+
+    write_ply(ply_file, verts, faces)
 
 
 def write_ply(filename, verts, faces):

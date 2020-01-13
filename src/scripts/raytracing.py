@@ -80,5 +80,7 @@ if __name__ == '__main__':
 
     voxel_grid.save_vox(voxel_txt_file)
 
+    txt_to_mesh(voxel_txt_file, voxel_file, grid_size=abs(cam.z_far-cam.z_near))
+
     # # Since we have done raycasting in camera system, apply the cam to world transform while saving the voxel
-    voxel_grid.to_mesh(voxel_file, cam.pose)
+    # voxel_grid.to_mesh(voxel_file, cam.pose)
