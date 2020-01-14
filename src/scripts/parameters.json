@@ -1,5 +1,5 @@
 {
-	"shapenet" : "../../Assets/shapenet-data/",
+	"shapenet" : "../../Assets/shapenet-data-todo/",
 	"shapenet_voxelized" : "../../Assets/shapenet-voxelized-gt/",
 	"shapenet_renderings" : "../../Assets/shapenet-renderings/",
 	"shapenet_raytraced" : "../../Assets/shapenet-raytraced/",
