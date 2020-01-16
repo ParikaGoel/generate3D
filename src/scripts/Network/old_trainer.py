@@ -62,8 +62,6 @@ def output_occ_grid_to_txt(output_file, occ_grid, mean, std):
             np.savetxt(f, data, fmt='%d %d %d %d %d %d', delimiter=' ')
 
 
-
-
 # # process the input voxel grid which is a numpy array
 # # Converts numpy.ndarray (W x H X D X C) in the range [0, 255] to a
 # # torch.FloatTensor of shape (C x D X H x W) in the range [0.0, 1.0].
@@ -158,7 +156,7 @@ def process_output(output_folder, model_output, mean, std):
     for nVoxel in range(batch_size):
         voxel = model_output[nVoxel]
         if occ:
-            output_occ_grid_to_txt(output_folder+"output.txt",voxel, mean, std)
+            output_occ_grid_to_txt(output_folder + "output.txt", voxel, mean, std)
         else:
             voxel = modeloutput_to_colorgrid(voxel, mean, std)
 
@@ -189,13 +187,13 @@ def train(input, target):
 
 def main():
     # stool
-    catid = "04379243"
-    id = "142060f848466cad97ef9a13efb5e3f7"
+    synset_id = "04379243"
+    model_id = "142060f848466cad97ef9a13efb5e3f7"
 
     params = JSONHelper.read("./parameters.json")
 
-    input_file = params["shapenet_raytraced"] + catid + "/" + id + ".txt"
-    target_file = params["shapenet_voxelized"] + catid + "/" + id + "__0__.txt"
+    input_file = params["shapenet_raytraced"] + synset_id + "/" + model_id + ".txt"
+    target_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "__0__.txt"
     output_folder = params["network_output"]
 
     input, mean, std = txt_to_input_occ_grid(input_file)
@@ -206,7 +204,7 @@ def main():
     output = train(input, target)
     output = output.detach()
     process_output(output_folder, output, mean, std)
-    txt_to_mesh(output_folder+"output.txt",output_folder+"output.ply")
+    txt_to_mesh(output_folder + "output.txt", output_folder + "output.ply")
 
 
 if __name__ == '__main__':

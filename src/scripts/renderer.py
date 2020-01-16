@@ -129,21 +129,6 @@ def generate_images(obj_file, out_folder, num_renderings):
         count += 1
 
 
-# if __name__ == '__main__':
-#     num_renderings = 10
-#
-#     params = JSONHelper.read("./parameters.json")
-#
-#     for f in glob.glob(params["shapenet"] + "/**/*/models/model_normalized.obj"):
-#         catid_cad = f.split("/", 6)[4]
-#         id_cad = f.split("/", 6)[5]
-#
-#         print("catid: ", catid_cad, " , id: ", id_cad)
-#         outdir = params["shapenet_renderings"] + "/" + catid_cad + "/" + id_cad
-#         pathlib.Path(outdir).mkdir(parents=True, exist_ok=True)
-#
-#         generate_images(f, outdir, num_renderings)
-
 if __name__ == '__main__':
     num_renderings = 10
 
@@ -153,25 +138,58 @@ if __name__ == '__main__':
     failed_ids = []
     file = "./failed_cases.json"
 
-    catid_cad = "03211117"
-    # id_cad = "adf9b0eaf3a1980187710597b0363fe6"
-
-    for f in glob.glob(params["shapenet"] + catid_cad + "/*/models/model_normalized.obj"):
+    for f in glob.glob(params["shapenet"] + "/**/*/models/model_normalized.obj"):
+        catid_cad = f.split("/", 6)[4]
         id_cad = f.split("/", 6)[5]
-        print("catid_cad: ", catid_cad, " , id_cad: ", id_cad)
-        try :
-            obj_file = params["shapenet"] + "/" + catid_cad + "/" + id_cad + "/models/model_normalized.obj"
+
+        if not catid_cad in failed_cases.keys():
+            failed_cases[catid_cad] = []
+
+        print("catid: ", catid_cad, " , id: ", id_cad)
+
+        try:
             outdir = params["shapenet_renderings"] + "/" + catid_cad + "/" + id_cad
             pathlib.Path(outdir).mkdir(parents=True, exist_ok=True)
 
-            generate_images(obj_file, outdir, num_renderings)
+            generate_images(f, outdir, num_renderings)
 
             dir = params["shapenet"] + "/" + catid_cad + "/" + id_cad
             shutil.rmtree(dir)
         except:
-            failed_ids.append(id_cad)
+            failed_cases[catid_cad].append(id_cad)
             pass
 
-    failed_cases[catid_cad] = failed_ids
-    write(file, failed_cases)
+        JSONHelper.write(file, failed_cases)
+
+# if __name__ == '__main__':
+#     num_renderings = 10
+#
+#     params = JSONHelper.read("./parameters.json")
+#
+#     failed_cases = {}
+#     failed_ids = []
+#     file = "./failed_cases.json"
+#
+#     catid_cad = "02818832"
+#     # id_cad = "adf9b0eaf3a1980187710597b0363fe6"
+#
+#     for f in glob.glob(params["shapenet"] + catid_cad + "/*/models/model_normalized.obj"):
+#         id_cad = f.split("/", 6)[5]
+#         print("catid_cad: ", catid_cad, " , id_cad: ", id_cad)
+#         # try :
+#         obj_file = params["shapenet"] + "/" + catid_cad + "/" + id_cad + "/models/model_normalized.obj"
+#         outdir = params["shapenet_renderings"] + "/" + catid_cad + "/" + id_cad
+#         pathlib.Path(outdir).mkdir(parents=True, exist_ok=True)
+#
+#         generate_images(obj_file, outdir, num_renderings)
+#
+#         dir = params["shapenet"] + "/" + catid_cad + "/" + id_cad
+#         shutil.rmtree(dir)
+#         # except:
+#         #     print("in exception block\n")
+#         #     failed_ids.append(id_cad)
+#         #     pass
+#
+#     # failed_cases[catid_cad] = failed_ids
+#     # JSONHelper.write(file, failed_cases)
 
