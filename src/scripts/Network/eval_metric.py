@@ -12,7 +12,7 @@ def iou(pred, target):
     pred = pred.view(-1)
     target = target.view(-1)
 
-    pred_inds = pred == 1
+    pred_inds = pred > 0.5
     target_inds = target == 1
     intersection = (pred_inds[target_inds]).long().sum().data.cpu().item()  # Cast to long to prevent overflows
     union = pred_inds.long().sum().data.cpu().item() + target_inds.long().sum().data.cpu().item() - intersection

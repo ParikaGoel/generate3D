@@ -145,8 +145,9 @@ if __name__ == '__main__':
     params = JSONHelper.read("./parameters.json")
 
     for synset_id in synset_lst:
-        for f in glob.glob(params["shapenet"] + synset_id + "/*/models/model_normalized.obj"):
-            model_id = f.split("/", 6)[5]
-
+        for f in glob.glob(params["shapenet_renderings"] + synset_id + "/*/color/color0.png"):
+            print(f,'\n')
+            model_id = f.split("/", 10)[8]
+            print(synset_id, " ", model_id)
             generate_raycasted_model(synset_id, model_id)
         print("Finished raycasting synset ", synset_id)

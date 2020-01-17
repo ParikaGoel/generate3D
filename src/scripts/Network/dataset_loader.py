@@ -1,5 +1,4 @@
 import sys
-
 sys.path.append('../.')
 import torch
 import config
@@ -62,7 +61,7 @@ class DatasetLoad(torch.utils.data.Dataset):
         """
         dataset loader class -> reads the input and gt txt files corresponding to synset_id and model_id
         and gives the occupancy grids for input and target
-        :param train_list: list of dict entries. dict entry -> {'synset_id':'2933112', 'model_id':'2f0fd2a5e181b82a4267f85fb94fa2e7'}
+        :param train_list: list of dict entries. dict entry -> {'synset_id':'02933112', 'model_id':'2f0fd2a5e181b82a4267f85fb94fa2e7'}
         :param n_max_samples: max samples to be used
         """
         self._train_list = train_list
