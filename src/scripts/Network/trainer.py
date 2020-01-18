@@ -1,96 +1,145 @@
 import sys
+
 sys.path.append('../.')
 import glob
 import torch
+import config
 import JSONHelper
 from model import *
-from config import *
 import torch.nn as nn
 import torch.optim as optim
 import dataset_loader as dataloader
-from torch.autograd import Variable
 import torch.utils.data as torchdata
+from torch.utils.tensorboard import SummaryWriter
+
+params = JSONHelper.read("../parameters.json")
+
+
+def create_summary_writers(train_writer_path, val_writer_path):
+    """
+    :param train_writer_path: Path to the train writer
+    :param val_writer_path: Path to the val writer
+    :return: Summary writer objects
+    """
+    writer_train = SummaryWriter(train_writer_path)
+    writer_val = SummaryWriter(val_writer_path)
+    return writer_train, writer_val
 
 
 class Trainer:
-    def __init__(self, train_list):
+    def __init__(self, train_list, val_list, device):
         self.dataset_train = dataloader.DatasetLoad(train_list)
+        self.dataloader_train = torchdata.DataLoader(self.dataset_train, batch_size=50, shuffle=True,
+                                                     num_workers=2, drop_last=False)
 
-    def train(self):
-        self.dataloader_train = torchdata.DataLoader(self.dataset_train)
-        # self.dataloader_train = torchdata.DataLoader(self.dataset_train, batch_size=4, shuffle=True,
-        #                                              num_workers=2, drop_last=False)
+        self.dataset_val = dataloader.DatasetLoad(val_list)
+        self.dataloader_val = torchdata.DataLoader(self.dataset_val)
 
-        model = Net(1, 1).cpu()
-        distance = nn.MSELoss()
-        # distance = nn.CrossEntropyLoss()
-        optimizer = torch.optim.Adam(model.parameters(), weight_decay=1e-5)
+        self.device = device
+        self.model = Net(1, 1).to(device)
 
-        # ----------------------------------------------------------------------
-        for epoch in range(num_epochs):
-            running_loss = 0.0
+    def loss_and_optimizer(self):
+        # self.criterion = nn.MSELoss()
+        # self.criterion = nn.BCEWithLogitsLoss()
+        self.criterion = nn.BCELoss()
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.lr, weight_decay=1e-5)
+        # self.optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9, weight_decay=0.0005)
 
-            for idx, sample in enumerate(self.dataloader_train):
-                input = Variable(sample['occ_grid']).cpu()
-                target = Variable(sample['occ_gt']).cpu()
+    def train(self, epoch):
+        self.model.train()
+        batch_loss = 0.0
+        running_loss = 0.0
 
-                # zero the parameter gradients
-                optimizer.zero_grad()
+        for idx, sample in enumerate(self.dataloader_train):
+            input = sample['occ_grid'].to(self.device)
+            target = sample['occ_gt'].to(self.device)
+
+            # zero the parameter gradients
+            self.optimizer.zero_grad()
+
+            # ===================forward=====================
+            output = self.model(input)
+            loss = self.criterion(output, target)
+            # ===================backward + optimize====================
+            loss.backward()
+            self.optimizer.step()
+
+            # ===================log========================
+            batch_loss += loss.item()
+            running_loss += loss.item()
+
+            if idx % 5 == 4:
+                print('Training : [%d : %5d] loss: %.3f' % (epoch + 1, idx + 1, running_loss / 5))
+                running_loss = 0.0
+
+        train_loss = batch_loss / (idx + 1)
+        return train_loss
+
+    def validate(self):
+        self.model.eval()
+        batch_loss = 0.0
+
+        with torch.no_grad():
+            for idx, sample in enumerate(self.dataloader_val):
+                input = sample['occ_grid'].to(self.device)
+                target = sample['occ_gt'].to(self.device)
 
                 # ===================forward=====================
-                output = model(input)
-                loss = distance(output, target)
-                # ===================backward + optimize====================
-                loss.backward()
-                optimizer.step()
+                output = self.model(input)
+                loss = self.criterion(output, target)
 
                 # ===================log========================
-                running_loss += loss.item()
-                if idx % 50 == 49:
-                    print('[%d, %5d] loss: %.3f' % (epoch + 1, idx + 1, running_loss / 50))
-                    running_loss = 0.0
+                batch_loss += loss.item()
+            val_loss = batch_loss / (idx + 1)
+            return val_loss
+
+    def start(self, train_writer, val_writer):
+        print("Start training")
+        for epoch in range(config.num_epochs):
+            train_loss = self.train(epoch)
+            val_loss = self.validate()
+            print("Train loss: %.3f" % train_loss)
+            print("Val loss: %.3f" % val_loss)
+            train_writer.add_scalar("loss", train_loss, epoch + 1)
+            val_writer.add_scalar("loss", val_loss, epoch + 1)
+
         print("Finished training")
+        train_writer.close()
+        val_writer.close()
 
         # Save the trained model
-        torch.save(model.state_dict(), '/home/parika/WorkingDir/complete3D/Assets/output-network/model.pth')
+        torch.save(self.model.state_dict(), params["network_output"] + "model.pth")
 
 
 if __name__ == '__main__':
-    synset_lst = ['02747177', '02801938', '02773838', '02933112', '02942699', '02946921', '03636649']
+    synset_train_lst = ['02691156', '02747177', '02773838', '02801938', '02843684', '02933112', '02942699',
+                        '04074963', '04099429', '04460130', '04468005'] #, '03938244']
+    synset_val_lst = ['02946921', '03636649', '03710193', '03759954', '04554684']
+
     train_list = []
+    val_list =[]
 
-    params = JSONHelper.read("../parameters.json")
-
-    for synset_id in synset_lst:
+    for synset_id in synset_train_lst:
         for f in glob.glob(params["shapenet_raytraced"] + synset_id + "/*.txt"):
-            model_id = f[f.rfind('/')+1:f.rfind('.')]
+            model_id = f[f.rfind('/') + 1:f.rfind('.')]
             train_list.append({'synset_id': synset_id, 'model_id': model_id})
-    # train_list = []
-    # train_list.append({'synset_id': '02933112', 'model_id': '2f0fd2a5e181b82a4267f85fb94fa2e7'})
-    # train_list.append({'synset_id': '02933112', 'model_id': 'a46d947577ecb54a6bdcd672c2b17215'})
-    # train_list.append({'synset_id': '02933112', 'model_id': '37ba0371250bcd6de117ecc943aca233'})
-    # train_list.append({'synset_id': '02933112', 'model_id': 'bd2bcee265b1ee1c7c373e0e7470a338'})
-    # train_list.append({'synset_id': '02933112', 'model_id': '8a2aadf8fc4f092c5ee1a94f1da3a5e'})
-    #
-    # train_list.append({'synset_id': '02942699', 'model_id': '6d036fd1c70e5a5849493d905c02fa86'})
-    # train_list.append({'synset_id': '02942699', 'model_id': '97690c4db20227d248e23e2c398d8046'})
-    # train_list.append({'synset_id': '02942699', 'model_id': 'e9e22de9e4c3c3c92a60bd875e075589'})
-    # train_list.append({'synset_id': '02942699', 'model_id': '51176ec8f251800165a1ced01089a2d6'})
-    # train_list.append({'synset_id': '02942699', 'model_id': '46c09085e451de8fc3c192db90697d8c'})
-    #
-    # train_list.append({'synset_id': '02946921', 'model_id': 'ebcbb82d158d68441f4c1c50f6e9b74e'})
-    # train_list.append({'synset_id': '02946921', 'model_id': '3703ada8cc31df4337b00c4c2fbe82aa'})
-    # train_list.append({'synset_id': '02946921', 'model_id': 'fd40fa8939f5f832ae1aa888dd691e79'})
-    # train_list.append({'synset_id': '02946921', 'model_id': '3fd8dae962fa3cc726df885e47f82f16'})
-    # train_list.append({'synset_id': '02946921', 'model_id': 'b1980d6743b7a98c12a47018402419a2'})
-    #
-    # train_list.append({'synset_id': '03636649', 'model_id': 'bde9b62e181cd4694fb315ce917a9ec2'})
-    # train_list.append({'synset_id': '03636649', 'model_id': '967b6aa33d17c109e81edb73cdd34eeb'})
-    # train_list.append({'synset_id': '03636649', 'model_id': '6ffb0636180aa5d78570a59d0416a26d'})
-    # train_list.append({'synset_id': '03636649', 'model_id': 'f449dd0eb25773925077539b37310c29'})
-    # train_list.append({'synset_id': '03636649', 'model_id': '989694b21ed5752d4c61a7cce317bfb7'})
-    #
+
+    for synset_id in synset_val_lst:
+        for f in glob.glob(params["shapenet_raytraced"] + synset_id + "/*.txt"):
+            model_id = f[f.rfind('/') + 1:f.rfind('.')]
+            val_list.append({'synset_id': synset_id, 'model_id': model_id})
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     print("Training data size: ", len(train_list))
-    trainer = Trainer(train_list)
-    trainer.train()
+    print("Validation data size: ", len(val_list))
+    print("Device: ", device)
+
+    train_writer_path = params["network_output"] + "logs/train"
+    val_writer_path = params["network_output"] + "logs/val"
+
+    train_writer, val_writer = create_summary_writers(train_writer_path, val_writer_path)
+
+    trainer = Trainer(train_list, val_list, device)
+    trainer.loss_and_optimizer()
+    trainer.start(train_writer, val_writer)

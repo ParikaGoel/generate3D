@@ -56,24 +56,17 @@ class Tester:
 
 
 if __name__ == '__main__':
+    # synset_test_lst = ['02691156', '02747177', '02773838', '02801938', '02843684', '02933112', '02942699',
+    #                    '02946921', '03636649', '03710193', '03759954', '03938244', '04074963', '04099429',
+    #                    '04460130', '04468005', '04554684']
+
     test_list = []
-    # test_list.append({'synset_id': '02747177', 'model_id': '9ee464a3fb9d3e8e57cd6640bbeb736d'})
-    # test_list.append({'synset_id': '02747177', 'model_id': 'f67bf3e49cfffc91f155d75bbf62b80'})
-    # test_list.append({'synset_id': '02747177', 'model_id': '60b4017e16fd9c4f2056b4bd5d870b47'})
-    # test_list.append({'synset_id': '02747177', 'model_id': '2f79bca58f58a3ead2b12aa6a0f050b3'})
-    # test_list.append({'synset_id': '02747177', 'model_id': 'af1dc226f465990e81faebbdea6bd9be'})
 
-    test_list.append({'synset_id': '02773838', 'model_id': '4e4fcfffec161ecaed13f430b2941481'})
-    test_list.append({'synset_id': '02773838', 'model_id': '3077a9b76724b6d35de21284bb515a83'})
-    test_list.append({'synset_id': '02773838', 'model_id': 'cbc2328cadf8dc573394926146371698'})
-    test_list.append({'synset_id': '02773838', 'model_id': 'd3bd250ca3cb8e29976855a35549333'})
-    test_list.append({'synset_id': '02773838', 'model_id': '7565e6f425dd6d376d987ae9a225629c'})
-
-    # test_list.append({'synset_id': '02933112', 'model_id': '2f0fd2a5e181b82a4267f85fb94fa2e7'})
-    # test_list.append({'synset_id': '02933112', 'model_id': 'a46d947577ecb54a6bdcd672c2b17215'})
-    # test_list.append({'synset_id': '02933112', 'model_id': '37ba0371250bcd6de117ecc943aca233'})
-    # test_list.append({'synset_id': '02933112', 'model_id': 'bd2bcee265b1ee1c7c373e0e7470a338'})
-    # test_list.append({'synset_id': '02933112', 'model_id': '8a2aadf8fc4f092c5ee1a94f1da3a5e'})
+    test_list.append({'synset_id': '03938244', 'model_id': '3fab1dacfa43a7046163a609fcf6c52'})
+    test_list.append({'synset_id': '03938244', 'model_id': '4b351af9567719043a4cd082c6787017'})
+    test_list.append({'synset_id': '03938244', 'model_id': '4c617e5be0596ee2685998681d42efb8'})
+    test_list.append({'synset_id': '03938244', 'model_id': '8b0c10a775c4c4edc1ebca21882cca5d'})
+    test_list.append({'synset_id': '03938244', 'model_id': '71dd20123ef5505d5931970d29212910'})
 
     tester = Tester(test_list)
     outputs = tester.test()

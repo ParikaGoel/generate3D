@@ -140,31 +140,31 @@ def generate_raycasted_model(synset_id, model_id):
 
 if __name__ == '__main__':
     synset_lst = []
-    synset_lst.append("02773838")
-    synset_lst.append("02801938")
-    synset_lst.append("02843684")
-    synset_lst.append("02880940")
-    synset_lst.append("02954340")
-    synset_lst.append("03085013")
+    synset_lst.append("04468005")
+    # synset_lst.append("02801938")
+    # synset_lst.append("02843684")
+    # synset_lst.append("02880940")
+    # synset_lst.append("02954340")
+    # synset_lst.append("03085013")
 
     params = JSONHelper.read("./parameters.json")
 
     failed_cases = {}
-    file = "./failed_cases.json"
+    file = params['shapenet_raytraced'] + "failed_labsys_cp2.json"
 
     for synset_id in synset_lst:
         for f in glob.glob(params["shapenet"] + synset_id + "/*/models/model_normalized.obj"):
             model_id = f.split("/", 10)[8]
             print(synset_id, " : ", model_id)
 
-            try:
-                if not synset_id in failed_cases.keys():
-                    failed_cases[synset_id] = []
+            # try:
+            #     if not synset_id in failed_cases.keys():
+            #         failed_cases[synset_id] = []
 
-                generate_raycasted_model(synset_id, model_id)
-            except:
-                failed_cases[synset_id].append(model_id)
-                pass
+            generate_raycasted_model(synset_id, model_id)
+            # except:
+            #     failed_cases[synset_id].append(model_id)
+            #     pass
 
         print("Finished raycasting synset ", synset_id)
 
