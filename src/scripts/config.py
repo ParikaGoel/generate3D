@@ -13,9 +13,9 @@ color_bg = [1., 1., 1.]
 vox_dim = 32
 
 # train network
-num_epochs = 30
+num_epochs = 50
 batch_size = 50
 lr = 0.001
 momentum = 0.9
 weight_decay = 1e-5
-model_name = "model3"
+model_name = "model6"

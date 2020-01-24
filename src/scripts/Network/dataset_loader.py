@@ -46,7 +46,7 @@ def save_sample(txt_file, occ_grid):
     """
     occ_grid = occ_grid[0]  # <- removes the channel dimension
     occ_grid = occ_grid.clamp(0, 1)
-    occ_grid = occ_grid.numpy().transpose(2, 1, 0)
+    occ_grid = occ_grid.cpu().numpy().transpose(2, 1, 0)
 
     positions = np.where(occ_grid > 0.5)
     with open(txt_file, "w") as f:

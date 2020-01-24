@@ -37,6 +37,7 @@ class Tester:
             target = sample['occ_gt'].to(self.device)
 
             output = model(input)
+            output = torch.nn.Sigmoid()(output)
 
             iou_val = metric.iou(output, target)
 
@@ -72,7 +73,8 @@ if __name__ == '__main__':
     # 04468005: 691349d753698dd8dc14ba0818ee5cec
     # 04468005: fb26c97b4f84fe5aafe1d4530f4c6e24
 
-    test_list = [{'synset_id': '02747177', 'model_id': 'f53492ed7a071e13cb2a965e75be701c'},
+    test_list = [{'synset_id': '02747177', 'model_id': '90669f582a8fccc5ad5067eac75a07f7'},
+     {'synset_id': '02747177', 'model_id': 'f53492ed7a071e13cb2a965e75be701c'},
      {'synset_id': '02747177', 'model_id': '5092afb4be0a2f89950ab3eaa7fe7772'},
      {'synset_id': '02747177', 'model_id': '632c8c69e7e7bda54559a6e3650dcd3'},
      {'synset_id': '02747177', 'model_id': 'b689aed9b7017c49f155d75bbf62b80'},
@@ -83,15 +85,16 @@ if __name__ == '__main__':
      {'synset_id': '02747177', 'model_id': '5c7bd882d399e031d2b12aa6a0f050b3'},
      {'synset_id': '02747177', 'model_id': 'f249876997cf4fc550da8b99982a3057'},
      {'synset_id': '02747177', 'model_id': '37c9fe32ad87beccad5067eac75a07f7'},
-     {'synset_id': '02747177', 'model_id': 'fd013bea1e1ffb27c31c70b1ddc95e3f'},
-                 {'synset_id': '04468005', 'model_id': '2349848a40065e9f47367565b9fdaec5'},
-                 {'synset_id': '04468005', 'model_id': '56687a029d3f46dc52470de2774d6099'},
-                 {'synset_id': '04468005', 'model_id': '5588d3f63481259673ad6d3c817cbe81'},
-                 {'synset_id': '04468005', 'model_id': '7c511e5744c2ec399d4977b7872dffd3'},
-                 {'synset_id': '04468005', 'model_id': '13aac1cbf34edd552470de2774d6099'}]
+     {'synset_id': '02747177', 'model_id': 'fd013bea1e1ffb27c31c70b1ddc95e3f'}]
+                 # {'synset_id': '04468005', 'model_id': '2349848a40065e9f47367565b9fdaec5'},
+                 # {'synset_id': '04468005', 'model_id': '56687a029d3f46dc52470de2774d6099'},
+                 # {'synset_id': '04468005', 'model_id': '5588d3f63481259673ad6d3c817cbe81'},
+                 # {'synset_id': '04468005', 'model_id': '7c511e5744c2ec399d4977b7872dffd3'},
+                 # {'synset_id': '04468005', 'model_id': '13aac1cbf34edd552470de2774d6099'}]
 
     out_folder = params["network_output"]
     saved_model = out_folder + "saved_models/" + config.model_name + ".pth"
+    # saved_model = out_folder + "saved_models/model3.pth"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     print("Saved model: ", saved_model)
@@ -104,7 +107,8 @@ if __name__ == '__main__':
         model_id = test_list[idx]['model_id']
         output = outputs[idx]
         
-        folder = out_folder + synset_id
+        # folder = out_folder + "predicted_test_output/model3/" + synset_id
+        folder = out_folder + "predicted_test_output/" + config.model_name + "/" + synset_id
         pathlib.Path(folder).mkdir(parents=True, exist_ok=True)
 
         dataloader.save_sample(folder + "/" + model_id + ".txt", output)

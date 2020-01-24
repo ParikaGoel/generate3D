@@ -43,10 +43,7 @@ class Trainer:
         self.model = Net(1, 1).to(device)
 
     def loss_and_optimizer(self):
-        # self.criterion = losses.bce()
-        self.criterion = nn.MSELoss()
-        # self.criterion = nn.BCEWithLogitsLoss()
-        # self.criterion = nn.BCELoss()
+        self.criterion = losses.weighted_bce
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
         # self.optimizer = torch.optim.SGD(self.model.parameters(), lr=config.lr,
         #                                  momentum=config.momentum, weight_decay=config.weight_decay)
@@ -54,7 +51,6 @@ class Trainer:
     def train(self, epoch):
         self.model.train()
         batch_loss = 0.0
-        running_loss = 0.0
 
         for idx, sample in enumerate(self.dataloader_train):
             input = sample['occ_grid'].to(self.device)
@@ -65,19 +61,15 @@ class Trainer:
 
             # ===================forward=====================
             output = self.model(input)
-            # loss = losses.bce(output, target, self.device)
-            loss = self.criterion(output, target)
+            loss = self.criterion(output, target, 2, self.device)
             # ===================backward + optimize====================
             loss.backward()
             self.optimizer.step()
 
             # ===================log========================
             batch_loss += loss.item()
-            running_loss += loss.item()
 
-            if idx % 5 == 4:
-                print('Training : [%d : %5d] loss: %.3f' % (epoch + 1, idx + 1, running_loss / 5))
-                running_loss = 0.0
+            print('Training : [%d : %5d] loss: %.3f' % (epoch + 1, idx + 1, loss.item()))
 
         train_loss = batch_loss / (idx + 1)
         return train_loss
@@ -93,8 +85,7 @@ class Trainer:
 
                 # ===================forward=====================
                 output = self.model(input)
-                # loss = losses.bce(output, target, self.device)
-                loss = self.criterion(output, target)
+                loss = self.criterion(output, target, 2, self.device)
 
                 # ===================log========================
                 batch_loss += loss.item()
@@ -143,16 +134,16 @@ if __name__ == '__main__':
     val_list = train_list[250:330]
     train_list = train_list[:250]
 
-    counter = 0
-    for f in glob.glob(params["shapenet_raytraced"] + "04468005" + "/*.txt"):
-        model_id = f[f.rfind('/') + 1:f.rfind('.')]
-        if counter < 250:
-            train_list.append({'synset_id': '04468005', 'model_id': model_id})
-        elif counter > 260:
-            break
-        else:
-            print("04468005 : ", model_id)
-        counter = counter + 1
+    # counter = 0
+    # for f in glob.glob(params["shapenet_raytraced"] + "04468005" + "/*.txt"):
+    #     model_id = f[f.rfind('/') + 1:f.rfind('.')]
+    #     if counter < 250:
+    #         train_list.append({'synset_id': '04468005', 'model_id': model_id})
+    #     elif counter > 260:
+    #         break
+    #     else:
+    #         print("04468005 : ", model_id)
+    #     counter = counter + 1
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
