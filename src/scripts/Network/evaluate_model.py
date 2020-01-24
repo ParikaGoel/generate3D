@@ -1,6 +1,7 @@
 import sys
 sys.path.append("../.")
 import torch
+import losses
 import config
 import pathlib
 import JSONHelper
@@ -8,23 +9,23 @@ import voxel_grid
 from model import *
 import eval_metric as metric
 import dataset_loader as dataloader
-from torch.autograd import Variable
 import torch.utils.data as torchdata
 
 
 class Tester:
-    def __init__(self, test_list):
+    def __init__(self, test_list, device):
         self.dataset_test = dataloader.DatasetLoad(test_list)
+        self.device = device
 
     def test(self, saved_model):
         self.dataloader_test = torchdata.DataLoader(self.dataset_test)
         # self.dataloader_test = torchdata.DataLoader(self.dataset_test, batch_size=1, shuffle=True,
         #                                             num_workers=2, drop_last=False)
 
-        model = Net(1, 1).cpu()
+        model = Net(1, 1).to(device)
 
         # load our saved model and use it to predict the class for test images
-        model.load_state_dict(torch.load(saved_model))
+        model.load_state_dict(torch.load(saved_model, map_location=self.device))
 
         mean_iou = 0.0
         counter = 0
@@ -32,8 +33,8 @@ class Tester:
         outputs = []
 
         for idx, sample in enumerate(self.dataloader_test):
-            input = Variable(sample['occ_grid']).cpu()
-            target = Variable(sample['occ_gt']).cpu()
+            input = sample['occ_grid'].to(self.device)
+            target = sample['occ_gt'].to(self.device)
 
             output = model(input)
 
@@ -59,17 +60,17 @@ class Tester:
 
 if __name__ == '__main__':
     params = JSONHelper.read('../parameters.json')
-    # synset_test_lst = ['02691156', '02747177', '02773838', '02801938', '02843684', '02933112', '02942699',
-    #                    '02946921', '03636649', '03710193', '03759954', '03938244', '04074963', '04099429',
-    #                    '04460130', '04468005', '04554684']
-
-    # test_list = []
-    #
-    # test_list.append({'synset_id': '03938244', 'model_id': '3fab1dacfa43a7046163a609fcf6c52'})
-    # test_list.append({'synset_id': '03938244', 'model_id': '4b351af9567719043a4cd082c6787017'})
-    # test_list.append({'synset_id': '03938244', 'model_id': '4c617e5be0596ee2685998681d42efb8'})
-    # test_list.append({'synset_id': '03938244', 'model_id': '8b0c10a775c4c4edc1ebca21882cca5d'})
-    # test_list.append({'synset_id': '03938244', 'model_id': '71dd20123ef5505d5931970d29212910'})
+    # 04468005: 2349848a40065e9f47367565b9fdaec5
+    # 04468005: 56687a029d3f46dc52470de2774d6099
+    # 04468005: 5588d3f63481259673ad6d3c817cbe81
+    # 04468005: 7c511e5744c2ec399d4977b7872dffd3
+    # 04468005: 13aac1cbf34edd552470de2774d6099
+    # 04468005: 17407a1c24d6a2a58d95cdb16ecced85
+    # 04468005: f646c4c40c7f16ae4afcfe0b72eeffb5
+    # 04468005: 8823677178c21f28dc14ba0818ee5cec
+    # 04468005: 8d136e53fdd5adba8be7c8c5fdb9bd6d
+    # 04468005: 691349d753698dd8dc14ba0818ee5cec
+    # 04468005: fb26c97b4f84fe5aafe1d4530f4c6e24
 
     test_list = [{'synset_id': '02747177', 'model_id': 'f53492ed7a071e13cb2a965e75be701c'},
      {'synset_id': '02747177', 'model_id': '5092afb4be0a2f89950ab3eaa7fe7772'},
@@ -82,16 +83,20 @@ if __name__ == '__main__':
      {'synset_id': '02747177', 'model_id': '5c7bd882d399e031d2b12aa6a0f050b3'},
      {'synset_id': '02747177', 'model_id': 'f249876997cf4fc550da8b99982a3057'},
      {'synset_id': '02747177', 'model_id': '37c9fe32ad87beccad5067eac75a07f7'},
-     {'synset_id': '02747177', 'model_id': 'fd013bea1e1ffb27c31c70b1ddc95e3f'}]
-
-    # test_list = [{'synset_id': '02747177', 'model_id': 'fd013bea1e1ffb27c31c70b1ddc95e3f'}]
+     {'synset_id': '02747177', 'model_id': 'fd013bea1e1ffb27c31c70b1ddc95e3f'},
+                 {'synset_id': '04468005', 'model_id': '2349848a40065e9f47367565b9fdaec5'},
+                 {'synset_id': '04468005', 'model_id': '56687a029d3f46dc52470de2774d6099'},
+                 {'synset_id': '04468005', 'model_id': '5588d3f63481259673ad6d3c817cbe81'},
+                 {'synset_id': '04468005', 'model_id': '7c511e5744c2ec399d4977b7872dffd3'},
+                 {'synset_id': '04468005', 'model_id': '13aac1cbf34edd552470de2774d6099'}]
 
     out_folder = params["network_output"]
     saved_model = out_folder + "saved_models/" + config.model_name + ".pth"
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     print("Saved model: ", saved_model)
 
-    tester = Tester(test_list)
+    tester = Tester(test_list, device)
     outputs = tester.test(saved_model)
 
     for idx in range(len(test_list)):

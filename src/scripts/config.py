@@ -15,7 +15,7 @@ vox_dim = 32
 # train network
 num_epochs = 30
 batch_size = 50
-lr = 0.01
+lr = 0.001
 momentum = 0.9
-weight_decay = 0.0005
-model_name = "model2"
+weight_decay = 1e-5
+model_name = "model3"

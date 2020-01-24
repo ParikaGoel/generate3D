@@ -7,6 +7,7 @@ import config
 import pathlib
 import losses
 import JSONHelper
+import numpy as np
 from model import *
 import torch.nn as nn
 import torch.optim as optim
@@ -43,12 +44,12 @@ class Trainer:
 
     def loss_and_optimizer(self):
         # self.criterion = losses.bce()
-        # self.criterion = nn.MSELoss()
+        self.criterion = nn.MSELoss()
         # self.criterion = nn.BCEWithLogitsLoss()
         # self.criterion = nn.BCELoss()
-        # self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.lr, weight_decay=1e-5)
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=config.lr,
-                                         momentum=config.momentum, weight_decay=config.weight_decay)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
+        # self.optimizer = torch.optim.SGD(self.model.parameters(), lr=config.lr,
+        #                                  momentum=config.momentum, weight_decay=config.weight_decay)
 
     def train(self, epoch):
         self.model.train()
@@ -64,8 +65,8 @@ class Trainer:
 
             # ===================forward=====================
             output = self.model(input)
-            loss = losses.bce(output, target)
-            # loss = self.criterion(output, target)
+            # loss = losses.bce(output, target, self.device)
+            loss = self.criterion(output, target)
             # ===================backward + optimize====================
             loss.backward()
             self.optimizer.step()
@@ -92,8 +93,8 @@ class Trainer:
 
                 # ===================forward=====================
                 output = self.model(input)
-                loss = losses.bce(output, target)
-                # loss = self.criterion(output, target)
+                # loss = losses.bce(output, target, self.device)
+                loss = self.criterion(output, target)
 
                 # ===================log========================
                 batch_loss += loss.item()
@@ -141,6 +142,18 @@ if __name__ == '__main__':
     print("Models not being used in training: ", train_list[330:])
     val_list = train_list[250:330]
     train_list = train_list[:250]
+
+    counter = 0
+    for f in glob.glob(params["shapenet_raytraced"] + "04468005" + "/*.txt"):
+        model_id = f[f.rfind('/') + 1:f.rfind('.')]
+        if counter < 250:
+            train_list.append({'synset_id': '04468005', 'model_id': model_id})
+        elif counter > 260:
+            break
+        else:
+            print("04468005 : ", model_id)
+        counter = counter + 1
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     print("Training data size: ", len(train_list))
