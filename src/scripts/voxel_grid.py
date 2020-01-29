@@ -127,29 +127,30 @@ class VoxelGrid:
 
     def to_mesh(self, filename, transform=None):
         cube_verts = np.array([[-1.0, -1.0, 1.0], [1.0, -1.0, 1.0], [1.0, 1.0, 1.0], [-1.0, 1.0, 1.0],
-                           [-1.0, -1.0, -1.0], [1.0, -1.0, -1.0], [1.0, 1.0, -1.0],[-1.0, 1.0, -1.0]])  # 8 points
+                               [-1.0, -1.0, -1.0], [1.0, -1.0, -1.0], [1.0, 1.0, -1.0], [-1.0, 1.0, -1.0]])  # 8 points
 
         cube_faces = np.array([[0, 1, 2], [2, 3, 0], [1, 5, 6], [6, 2, 1], [7, 6, 5], [5, 4, 7],
-                           [4, 0, 3], [3, 7, 4], [4, 5, 1], [1, 0, 4], [3, 2, 6], [6, 7, 3]])  # 6 faces (12 triangles)
+                               [4, 0, 3], [3, 7, 4], [4, 5, 1], [1, 0, 4], [3, 2, 6],
+                               [6, 7, 3]])  # 6 faces (12 triangles)
 
         verts = []
         faces = []
         curr_vertex = 0
 
         positions = np.where(self._occ_grid == 1)
+        min_bound = np.array([-0.5, -0.5, -0.5])
         for i, j, k in zip(*positions):
             for cube_vert in cube_verts:
                 vertex = (cube_vert * 0.45 + np.array([i, j, k])).astype(float)
                 vertex *= self._voxel_scale
                 # since we are looking in -ve z direction
-                vertex[2] = -vertex[2]
-                vertex += self._min_bound
-                translation = [0.0, 0.0, 1.0]
-                vertex = vertex + translation
-                # if transform is not None:
-                #     rotation = transform[0:3, 0:3]
-                #     translation = transform[0:3, 3]
-                #     vertex = np.matmul(rotation, vertex) + translation
+                # vertex[2] = -vertex[2]
+                vertex += min_bound
+
+                if transform is not None:
+                    rotation = transform[0:3, 0:3]
+                    translation = transform[0:3, 3]
+                    vertex = np.matmul(rotation, vertex) + translation
                 color = self._color_grid[i, j, k, :]
                 # color = [178, 120, 33]
                 vertex = np.append(vertex, color)
