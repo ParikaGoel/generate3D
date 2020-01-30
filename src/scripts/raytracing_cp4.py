@@ -140,7 +140,7 @@ def generate_raycasted_model(synset_id, model_id):
 
 if __name__ == '__main__':
     synset_lst = []
-    synset_lst.append("04225987")
+    synset_lst.append("02958343")
     # synset_lst.append("02801938")
     # synset_lst.append("02843684")
     # synset_lst.append("02880940")

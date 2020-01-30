@@ -2,6 +2,18 @@ import torch
 import numpy as np
 
 
+def create_target_mask2(output, target, weight):
+    weights = target.data.clone()
+
+    output_inds = output <= 0.1
+    target_inds = target == 0
+    intersection = output_inds & target_inds
+
+    weights.fill_(weight)
+    weights.masked_fill_(intersection, 1)
+    return weights
+
+
 def create_target_mask(target, weight):
     weights = target.data.clone()
     weights[weights > 0] = weight
@@ -44,8 +56,8 @@ def weighted_bce(output, target, weight, device):
     batch_size = target.shape[0]
     assert(len(output.shape) > 1)
 
-    weights = create_target_mask(target, weight)
     output = torch.nn.Sigmoid()(output)
+    weights = create_target_mask(target, weight)
     criterion = torch.nn.BCELoss(weight=weights, reduction="none").to(device)
     loss = criterion(output, target)
     loss = torch.stack([torch.mean(loss[i]) for i in range(batch_size)]).to(device)
@@ -54,3 +66,18 @@ def weighted_bce(output, target, weight, device):
 
     return loss
 
+
+def vol_proj_loss(proj_voxel, img_mask, weight, device):
+    """
+    Computes the projection loss
+    :param proj_voxel: Predicted voxel projected into image space
+    :param img_mask: Target Image Silhouette
+    :param weight: Weight for projection loss
+    :param device: cpu or cuda
+    :return:
+        MSE loss between the ground truth masks (object silhouettes)
+        and the predicted masks
+    """
+    proj_loss = mse(proj_voxel, img_mask, device)
+    proj_loss *= weight
+    return proj_loss

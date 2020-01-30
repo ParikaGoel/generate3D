@@ -18,4 +18,4 @@ batch_size = 50
 lr = 0.001
 momentum = 0.9
 weight_decay = 1e-5
-model_name = "model6"
+model_name = "model7"

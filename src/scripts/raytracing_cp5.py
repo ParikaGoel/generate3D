@@ -140,12 +140,7 @@ def generate_raycasted_model(synset_id, model_id):
 
 if __name__ == '__main__':
     synset_lst = []
-    synset_lst.append("04401088")
-    # synset_lst.append("02801938")
-    # synset_lst.append("02843684")
-    # synset_lst.append("02880940")
-    # synset_lst.append("02954340")
-    # synset_lst.append("03085013")
+    synset_lst.append("03001627")
 
     params = JSONHelper.read("./parameters.json")
 
