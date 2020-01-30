@@ -6,7 +6,7 @@ render_img_height = 512
 znear = 0.5
 zfar = 1.5
 focal = 525.0
-cam_depth = 1.2
+cam_depth = 1.0
 color_bg = [1., 1., 1.]
 
 # voxel

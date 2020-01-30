@@ -110,6 +110,7 @@ def generate_images(obj_file, out_folder, num_renderings):
         pose = np.eye(4)
         pose[0:3, 0:3] = rot_matrix.as_dcm()
         pose[:3, 3] = [0.0, 0.0, cam_depth]
+        # pose -> gives the pose of the camera in the world system; camera to world transformation
         cam_node = scene.add(camera, pose=pose)
 
         # pyrender.Viewer(scene)
