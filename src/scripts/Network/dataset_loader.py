@@ -1,9 +1,39 @@
 import sys
+
 sys.path.append('../.')
 import torch
 import config
+import camera
+import imageio
 import JSONHelper
 import numpy as np
+
+
+def load_img(png_file):
+    """
+    Loads the image from the png file and preprocess it to get the image silhouette
+    image silhouette -> h x w grid containing values (0,1)
+    :param png_file: Image png file
+    :return:
+        image silhouette as pytorch tensor (shape: [H, W]) (type: float)
+    """
+    img = imageio.imread(png_file)
+    img = img[:, :, 0]  # we dont need the color values for silhouette
+    img[img < 255] = 0
+    img[img == 255] = 1
+    img = torch.from_numpy(img).float()
+    return img
+
+
+def load_camera(cam_file):
+    """
+    creates the camera object from the camera parameters saved in json file
+    :param cam_file: json file containing camera parameters
+    :return:
+        camera object
+    """
+    cam = camera.load_camera(cam_file)
+    return cam
 
 
 def load_sample(txt_file):
@@ -79,13 +109,17 @@ class DatasetLoad(torch.utils.data.Dataset):
 
         params = JSONHelper.read("../parameters.json")
 
-        input_file = params["shapenet_raytraced"] + synset_id + "/" + model_id + ".txt"
-        target_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "__0__.txt"
+        input_occ_file = params["shapenet_raytraced"] + synset_id + "/" + model_id + ".txt"
+        gt_occ_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "__0__.txt"
+        gt_img_file = params["shapenet_renderings"] + synset_id + "/" + model_id + "/color/color0.png"
+        cam_file = params["shapenet_renderings"] + synset_id + "/" + model_id + "/cam/cam0.json"
 
-        occ_grid = load_sample(input_file)
-        gt = load_sample(target_file)
+        occ_grid = load_sample(input_occ_file)
+        occ_gt = load_sample(gt_occ_file)
+        img_gt = load_img(gt_img_file)
+        cam = load_camera(cam_file)
 
-        return {'occ_grid': occ_grid, 'occ_gt': gt}
+        return {'occ_grid': occ_grid, 'occ_gt': occ_gt, 'img_gt': img_gt, 'cam': cam}
 
 
 if __name__ == '__main__':

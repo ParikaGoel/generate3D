@@ -13,12 +13,12 @@ def load_camera(json_file):
 class Camera:
     def __init__(self, center=[256, 256], focal=[525.0, 525.0], z_near=0.01, z_far=1000.0):
         self._focal = focal
-        self._resolution = [(c * 2) for c in center]
+        self._resolution = [int(c * 2) for c in center]
         self._center = center
         self._znear = z_near
         self._zfar = z_far
         self._extrinsic = np.identity(4)  # extrinsic matrix that gives the transformation from world to camera system
-        self._pose = np.identity(4) # camera pose : position of camera in world system
+        self._pose = np.identity(4)  # camera pose : position of camera in world system
         self._intrinsic = np.identity(3)
 
     @property
@@ -57,7 +57,7 @@ class Camera:
         fov = 2.0 * np.degrees(
             np.arctan((self._resolution / 2.0) / self._focal))
         return fov
-    
+
     def load_from_json_file(self, filename):
         with open(filename) as camera_file:
             data = json.load(camera_file)

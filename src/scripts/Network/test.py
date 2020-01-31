@@ -61,15 +61,15 @@ def project(gt_img_file, occ_grid, transform):
     img.show()
 
 if __name__ == '__main__':
-    gt_file = "/home/parika/WorkingDir/complete3D/Assets_remote/shapenet-voxelized-gt/02747177/fd013bea1e1ffb27c31c70b1ddc95e3f__0__.txt"
-    gt_img_file = "/home/parika/WorkingDir/complete3D/Assets_remote/shapenet-renderings/02747177/fd013bea1e1ffb27c31c70b1ddc95e3f/color/color0.png"
+    gt_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/02747177/fd013bea1e1ffb27c31c70b1ddc95e3f__0__.txt"
+    gt_img_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-renderings/02747177/fd013bea1e1ffb27c31c70b1ddc95e3f/color/color0.png"
     out_txt_file = "/home/parika/WorkingDir/complete3D/Assets/test.txt"
     out_ply_file = "/home/parika/WorkingDir/complete3D/Assets/test.ply"
     out = "/home/parika/WorkingDir/complete3D/Assets/"
     gt_occ = loader.load_sample(gt_file)
     gt_occ = gt_occ[0].numpy().transpose(2, 1, 0)
 
-    obj_file = "/home/parika/WorkingDir/complete3D/Assets_remote/shapenet-data/02747177/fd013bea1e1ffb27c31c70b1ddc95e3f/models/model_normalized.obj"
+    obj_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-data/02747177/fd013bea1e1ffb27c31c70b1ddc95e3f/models/model_normalized.obj"
     # renderer.generate_images(obj_file, out, 10)
 
 
