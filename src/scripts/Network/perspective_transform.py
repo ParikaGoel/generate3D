@@ -19,6 +19,7 @@ import sys
 
 sys.path.append('../.')
 import config
+import torch
 import numpy as np
 import dataset_loader as loader
 
@@ -156,11 +157,8 @@ Returns:
                                  (z - z0_f) * x0_valid * y0_valid * z0_valid),
                                 1)
 
-    output = np.add([np.add([np.add([np.add([np.add([np.add([np.add([
-        np.multiply(np.transpose(w_z0_y0_x0),i_z0_y0_x0), np.multiply(np.transpose(w_z0_y0_x1), i_z0_y0_x1)]),
-        np.multiply(np.transpose(w_z0_y1_x0),i_z0_y1_x0)]), np.multiply(np.transpose(w_z0_y1_x1), i_z0_y1_x1)]),
-        np.multiply(np.transpose(w_z1_y0_x0),i_z1_y0_x0)]), np.multiply(np.transpose(w_z1_y0_x1), i_z1_y0_x1)]),
-        np.multiply(np.transpose(w_z1_y1_x0), i_z1_y1_x0)]), np.multiply(np.transpose(w_z1_y1_x1), i_z1_y1_x1)])
+    output = np.multiply(np.transpose(w_z0_y0_x0),i_z0_y0_x0) + np.multiply(np.transpose(w_z0_y0_x1), i_z0_y0_x1) + np.multiply(np.transpose(w_z0_y1_x0),i_z0_y1_x0) + np.multiply(np.transpose(w_z0_y1_x1), i_z0_y1_x1) + np.multiply(np.transpose(w_z1_y0_x0),i_z1_y0_x0) + np.multiply(np.transpose(w_z1_y0_x1), i_z1_y0_x1) + np.multiply(np.transpose(w_z1_y1_x0), i_z1_y1_x0) + np.multiply(np.transpose(w_z1_y1_x1), i_z1_y1_x1)
+
     return output
 
 
@@ -253,12 +251,17 @@ def transformer(voxels,
 if __name__ == '__main__':
     z_near = 0.866
     z_far = 1.732
-    gt_voxel = "../../../Assets/shapenet-voxelized-gt/02747177/fd013bea1e1ffb27c31c70b1ddc95e3f__0__.txt"
+    gt_voxel = "../../../Assets_remote/shapenet-voxelized-gt/02747177/fd013bea1e1ffb27c31c70b1ddc95e3f__0__.txt"
     gt_occ = loader.load_sample(gt_voxel)
-    gt_occ = gt_occ.unsqueeze(0)
+    gt_occ = np.expand_dims(gt_occ.numpy(),0)
+    # gt_occ = gt_occ.unsqueeze(0)
     gt_occ = np.transpose(gt_occ, [0, 3, 2, 4, 1])
 
     theta = np.array([1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.2, 0.0, 0.0, 0.0, 1.0])
     theta = np.expand_dims(theta, 0)
     output = transformer(gt_occ, theta, [32, 32, 32], z_near, z_far)
-    print(output.shape)
+    output = np.transpose(output, [0,4,2,1,3])
+    output = output[0]
+
+    output = torch.from_numpy(output)
+    loader.save_sample("../../../Assets/test.ply",output)

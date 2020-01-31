@@ -16,6 +16,7 @@ def project(gt_img_file, occ_grid, transform):
     w, h = 512, 512
     center = w/2
     data = np.full((h, w), 255, dtype=np.uint8)
+    mapping = np.full((h,w,3), 33, dtype=np.uint8) # index mapping between voxel and image
     color = [255, 0, 0]
 
     # occ_grid -> D x H x W
@@ -39,13 +40,14 @@ def project(gt_img_file, occ_grid, transform):
             vertex_max = np.matmul(rotation, vertex_max) + translation
 
         #project onto image space
-        u_max = max(0,int((config.focal * vertex_min[0]) / vertex_min[2] + center))
-        v_max = max(0,int((config.focal * vertex_min[1]) / vertex_min[2] + center))
+        u_max = min(511,int((config.focal * vertex_min[0]) / vertex_min[2] + center))
+        v_max = min(511,int((config.focal * vertex_min[1]) / vertex_min[2] + center))
 
-        u_min = min(511,int((config.focal * vertex_max[0]) / vertex_max[2] + center))
-        v_min = min(511,int((config.focal * vertex_max[1]) / vertex_max[2] + center))
+        u_min = max(0,int((config.focal * vertex_max[0]) / vertex_max[2] + center))
+        v_min = max(0,int((config.focal * vertex_max[1]) / vertex_max[2] + center))
 
         data[v_min:v_max,u_min:u_max] = 0
+        mapping[v_min:v_max,u_min:u_max,] = [i, j, k]
 
     img = Image.fromarray(data, 'L')
     img.show()

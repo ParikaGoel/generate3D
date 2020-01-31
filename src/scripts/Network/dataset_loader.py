@@ -48,7 +48,8 @@ def save_sample(txt_file, occ_grid):
     occ_grid = occ_grid.clamp(0, 1)
     occ_grid = occ_grid.cpu().numpy().transpose(2, 1, 0)
 
-    positions = np.where(occ_grid > 0.5)
+    positions = np.where(occ_grid == 1)
+    # positions = np.where(occ_grid > 0.5)
     with open(txt_file, "w") as f:
         for i, j, k in zip(*positions):
             color = np.array([169, 0, 255])
