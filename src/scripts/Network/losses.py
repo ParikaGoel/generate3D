@@ -25,7 +25,7 @@ def mse(output, target, device):
     batch_size = target.shape[0]
     assert (len(output.shape) > 1)
     criterion = torch.nn.MSELoss(reduction="none").to(device)
-    loss = criterion(output, target)
+    loss = criterion(output.float(), target.float())
     loss = torch.stack([torch.mean(loss[i]) for i in range(batch_size)])
 
     loss = torch.mean(loss)

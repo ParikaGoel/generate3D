@@ -9,14 +9,27 @@ import voxel_grid as voxel
 import dataset_loader as loader
 
 
-def project(occ_grid, cam):
-    transform = cam.extrinsic
-    w = int(cam.resolution[0])
-    h = int(cam.resolution[1])
-    proj_img = np.full((h, w), 255, dtype=np.uint8)
+def project_batch(occ_grids, transforms):
+    batch_size = occ_grids.shape[0]
+    projs = []
+    for i in range(batch_size):
+        proj_img = project(occ_grids[i], transforms[i])
+        projs.append(proj_img)
+
+    proj_imgs = torch.stack(projs, dim=0)
+    return proj_imgs
+
+
+def project(occ_grid, transform):
+    w = config.render_img_width
+    h = config.render_img_height
+    center = w / 2
+
+    occ_grid = occ_grid[0].transpose(2, 0)  # removes the channel dimension and changes shape to [W, H, D]
+    proj_img = torch.empty((h, w), dtype=torch.float).fill_(1.0)
 
     # occ_grid -> D x H x W
-    positions = np.where(occ_grid == 1)
+    positions = torch.where(occ_grid == 1)
     min_bound = np.array([-0.5, -0.5, -0.5])
     voxel_scale = 1/ 32
     for i, j, k in zip(*positions):
@@ -35,17 +48,16 @@ def project(occ_grid, cam):
             vertex_max = np.matmul(rotation, vertex_max) + translation
 
         #project onto image space
-        u_max = min(511, int((cam.focal[0] * vertex_min[0]) / vertex_min[2] + cam.center[0]))
-        v_max = min(511, int((cam.focal[1] * vertex_min[1]) / vertex_min[2] + cam.center[1]))
+        u_max = min(511, int((config.focal * vertex_min[0]) / vertex_min[2] + center))
+        v_max = min(511, int((config.focal * vertex_min[1]) / vertex_min[2] + center))
 
-        u_min = max(0, int((cam.focal[0] * vertex_max[0]) / vertex_max[2] + cam.center[0]))
-        v_min = max(0, int((cam.focal[1] * vertex_max[1]) / vertex_max[2] + cam.center[1]))
+        u_min = max(0, int((config.focal * vertex_max[0]) / vertex_max[2] + center))
+        v_min = max(0, int((config.focal * vertex_max[1]) / vertex_max[2] + center))
 
-        proj_img[v_min:v_max, u_min:u_max] = 0
+        proj_img[v_min:v_max, u_min:u_max] = 0.0
 
-    proj_img[proj_img == 255] = 1
-    proj_img = torch.from_numpy(proj_img).float()
     return proj_img
+
 
 if __name__ == '__main__':
     gt_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/02747177/fd013bea1e1ffb27c31c70b1ddc95e3f__0__.txt"
@@ -56,22 +68,23 @@ if __name__ == '__main__':
     out_ply_file = "/home/parika/WorkingDir/complete3D/Assets/test.ply"
     out = "/home/parika/WorkingDir/complete3D/Assets/"
     gt_occ = loader.load_sample(gt_file)
-    gt_occ = gt_occ[0].numpy().transpose(2, 1, 0)
 
     obj_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-data/02747177/fd013bea1e1ffb27c31c70b1ddc95e3f/models/model_normalized.obj"
     # renderer.generate_images(obj_file, out, 10)
 
     gt_img = loader.load_img(gt_img_file)
-    cam = loader.load_camera(cam_file)
+    transform = loader.get_extrinsic(cam_file)
 
-    proj_img = project(gt_occ, cam)
+    gt_occ = gt_occ.unsqueeze(0)
+    transform = np.expand_dims(transform, 0)
+    # proj_img = project(gt_occ, transform)
+    proj_img = project_batch(gt_occ, transform)
 
     gt_img = gt_img.unsqueeze(0)
-    proj_img = proj_img.unsqueeze(0)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    proj_loss = losses.vol_proj_loss(proj_img.to(device),
-                                     gt_img.to(device), 1, device)
+    proj_loss = losses.vol_proj_loss(proj_img.float().to(device),
+                                     gt_img.float().to(device), 1, device)
     print(proj_loss)
 
     proj_img = proj_img[0].numpy().astype(np.uint8)

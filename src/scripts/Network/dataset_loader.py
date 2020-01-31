@@ -1,9 +1,9 @@
 import sys
 
 sys.path.append('../.')
+import json
 import torch
 import config
-import camera
 import imageio
 import JSONHelper
 import numpy as np
@@ -21,19 +21,21 @@ def load_img(png_file):
     img = img[:, :, 0]  # we dont need the color values for silhouette
     img[img < 255] = 0
     img[img == 255] = 1
-    img = torch.from_numpy(img).float()
+    img = torch.from_numpy(img)
     return img
 
 
-def load_camera(cam_file):
-    """
-    creates the camera object from the camera parameters saved in json file
-    :param cam_file: json file containing camera parameters
-    :return:
-        camera object
-    """
-    cam = camera.load_camera(cam_file)
-    return cam
+def get_extrinsic(cam_file):
+    data = JSONHelper.read(cam_file)
+    # read the camera pose
+    pose = np.empty(0)
+    for val in data['pose']:
+        pose = np.append(pose, val)
+
+    pose = np.transpose(np.reshape(pose, (4, 4)))
+    # extrinsic matrix will be the inverse of camera pose
+    extrinsic = np.linalg.inv(pose)
+    return extrinsic
 
 
 def load_sample(txt_file):
@@ -78,8 +80,7 @@ def save_sample(txt_file, occ_grid):
     occ_grid = occ_grid.clamp(0, 1)
     occ_grid = occ_grid.cpu().numpy().transpose(2, 1, 0)
 
-    positions = np.where(occ_grid == 1)
-    # positions = np.where(occ_grid > 0.5)
+    positions = np.where(occ_grid > 0.5)
     with open(txt_file, "w") as f:
         for i, j, k in zip(*positions):
             color = np.array([169, 0, 255])
@@ -117,9 +118,9 @@ class DatasetLoad(torch.utils.data.Dataset):
         occ_grid = load_sample(input_occ_file)
         occ_gt = load_sample(gt_occ_file)
         img_gt = load_img(gt_img_file)
-        cam = load_camera(cam_file)
+        extrinsic = get_extrinsic(cam_file)
 
-        return {'occ_grid': occ_grid, 'occ_gt': occ_gt, 'img_gt': img_gt, 'cam': cam}
+        return {'occ_grid': occ_grid, 'occ_gt': occ_gt, 'img_gt': img_gt, 'transform': extrinsic}
 
 
 if __name__ == '__main__':
