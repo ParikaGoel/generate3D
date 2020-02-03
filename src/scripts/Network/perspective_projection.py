@@ -1,99 +1,159 @@
-import sys
-sys.path.append("../.")
 import torch
-import config
-import losses
 import numpy as np
-from PIL import Image
-import voxel_grid as voxel
-import dataset_loader as loader
+from torch.autograd import Function
 
 
-def project_batch(occ_grids, transforms):
-    batch_size = occ_grids.shape[0]
-    projs = []
-    for i in range(batch_size):
-        proj_img = project(occ_grids[i], transforms[i])
-        projs.append(proj_img)
+# create camera intrinsics
+def make_intrinsic():
+    intrinsic = torch.eye(4)
+    intrinsic[0][0] = 525.0
+    intrinsic[1][1] = 525.0
+    intrinsic[0][2] = 512 / 2
+    intrinsic[1][2] = 512 / 2
+    return intrinsic
 
-    proj_imgs = torch.stack(projs, dim=0)
-    return proj_imgs
+
+class ProjectionHelper():
+    def __init__(self, intrinsic, depth_min, depth_max, image_dims, volume_dims, voxel_size):
+        self.intrinsic = intrinsic
+        self.depth_min = depth_min
+        self.depth_max = depth_max
+        self.image_dims = image_dims
+        self.volume_dims = volume_dims
+        self.voxel_size = voxel_size
 
 
-def project(occ_grid, transform):
-    w = config.render_img_width
-    h = config.render_img_height
-    center = w / 2
+    def depth_to_skeleton(self, ux, uy, depth):
+        x = (ux - self.intrinsic[0][2]) / self.intrinsic[0][0]
+        y = (uy - self.intrinsic[1][2]) / self.intrinsic[1][1]
+        return torch.Tensor([depth*x, depth*y, depth])
 
-    occ_grid = occ_grid[0].transpose(2, 0)  # removes the channel dimension and changes shape to [W, H, D]
-    proj_img = torch.empty((h, w), dtype=torch.float).fill_(1.0)
 
-    # occ_grid -> D x H x W
-    positions = torch.where(occ_grid == 1)
-    min_bound = np.array([-0.5, -0.5, -0.5])
-    voxel_scale = 1/ 32
-    for i, j, k in zip(*positions):
-        vertex_min = (np.array([-1.0, -1.0, -1.0]) + np.array([i, j, k])).astype(float)
-        vertex_max = (np.array([1.0, 1.0, 1.0]) + np.array([i, j, k])).astype(float)
-        vertex_min *= voxel_scale
-        vertex_min += min_bound
+    def skeleton_to_depth(self, p):
+        x = (p[0] * self.intrinsic[0][0]) / p[2] + self.intrinsic[0][2]
+        y = (p[1] * self.intrinsic[1][1]) / p[2] + self.intrinsic[1][2]
+        return torch.Tensor([x, y, p[2]])
 
-        vertex_max *= voxel_scale
-        vertex_max += min_bound
 
-        if transform is not None:
-            rotation = transform[0:3, 0:3]
-            translation = transform[0:3, 3]
-            vertex_min = np.matmul(rotation, vertex_min) + translation
-            vertex_max = np.matmul(rotation, vertex_max) + translation
+    def compute_frustum_bounds(self, world_to_grid, camera_to_world):
+        corner_points = camera_to_world.new(8, 4, 1).fill_(1)
+	    # depth min
+        corner_points[0][:3] = self.depth_to_skeleton(0, 0, self.depth_min).unsqueeze(1)
+        corner_points[1][:3] = self.depth_to_skeleton(self.image_dims[0] - 1, 0, self.depth_min).unsqueeze(1)
+        corner_points[2][:3] = self.depth_to_skeleton(self.image_dims[0] - 1, self.image_dims[1] - 1, self.depth_min).unsqueeze(1)
+        corner_points[3][:3] = self.depth_to_skeleton(0, self.image_dims[1] - 1, self.depth_min).unsqueeze(1)
+        # depth max
+        corner_points[4][:3] = self.depth_to_skeleton(0, 0, self.depth_max).unsqueeze(1)
+        corner_points[5][:3] = self.depth_to_skeleton(self.image_dims[0] - 1, 0, self.depth_max).unsqueeze(1)
+        corner_points[6][:3] = self.depth_to_skeleton(self.image_dims[0] - 1, self.image_dims[1] - 1, self.depth_max).unsqueeze(1)
+        corner_points[7][:3] = self.depth_to_skeleton(0, self.image_dims[1] - 1, self.depth_max).unsqueeze(1)
 
-        #project onto image space
-        u_max = min(511, int((config.focal * vertex_min[0]) / vertex_min[2] + center))
-        v_max = min(511, int((config.focal * vertex_min[1]) / vertex_min[2] + center))
+        p = torch.bmm(camera_to_world.repeat(8, 1, 1), corner_points)
+        pl = torch.round(torch.bmm(world_to_grid.repeat(8, 1, 1), torch.floor(p)))
+        pu = torch.round(torch.bmm(world_to_grid.repeat(8, 1, 1), torch.ceil(p)))
+        bbox_min0, _ = torch.min(pl[:, :3, 0], 0)
+        bbox_min1, _ = torch.min(pu[:, :3, 0], 0)
+        bbox_min = np.minimum(bbox_min0, bbox_min1)
+        bbox_max0, _ = torch.max(pl[:, :3, 0], 0)
+        bbox_max1, _ = torch.max(pu[:, :3, 0], 0) 
+        bbox_max = np.maximum(bbox_max0, bbox_max1)
+        return bbox_min, bbox_max
 
-        u_min = max(0, int((config.focal * vertex_max[0]) / vertex_max[2] + center))
-        v_min = max(0, int((config.focal * vertex_max[1]) / vertex_max[2] + center))
 
-        proj_img[v_min:v_max, u_min:u_max] = 0.0
+    # TODO make runnable on cpu as well...
+    def compute_projection(self, depth, camera_to_world, world_to_grid):
+        # compute projection by voxels -> image
+        world_to_camera = torch.inverse(camera_to_world)
+        grid_to_world = torch.inverse(world_to_grid)
+        voxel_bounds_min, voxel_bounds_max = self.compute_frustum_bounds(world_to_grid, camera_to_world)
+        voxel_bounds_min = np.maximum(voxel_bounds_min, 0).cuda()
+        voxel_bounds_max = np.minimum(voxel_bounds_max, self.volume_dims).float().cuda()
 
-    return proj_img
+        # coordinates within frustum bounds
+        lin_ind_volume = torch.arange(0, self.volume_dims[0]*self.volume_dims[1]*self.volume_dims[2], out=torch.LongTensor()).cuda()
+        coords = camera_to_world.new(4, lin_ind_volume.size(0))
+        coords[2] = lin_ind_volume / (self.volume_dims[0]*self.volume_dims[1])
+        tmp = lin_ind_volume - (coords[2]*self.volume_dims[0]*self.volume_dims[1]).long()
+        coords[1] = tmp / self.volume_dims[0]
+        coords[0] = torch.remainder(tmp, self.volume_dims[0])
+        coords[3].fill_(1)
+        mask_frustum_bounds = torch.ge(coords[0], voxel_bounds_min[0]) * torch.ge(coords[1], voxel_bounds_min[1]) * torch.ge(coords[2], voxel_bounds_min[2])
+        mask_frustum_bounds = mask_frustum_bounds * torch.lt(coords[0], voxel_bounds_max[0]) * torch.lt(coords[1], voxel_bounds_max[1]) * torch.lt(coords[2], voxel_bounds_max[2])
+        if not mask_frustum_bounds.any():
+            print('error: nothing in frustum bounds')
+            return None
+        lin_ind_volume = lin_ind_volume[mask_frustum_bounds]
+        coords = coords.resize_(4, lin_ind_volume.size(0))
+        coords[2] = lin_ind_volume / (self.volume_dims[0]*self.volume_dims[1])
+        tmp = lin_ind_volume - (coords[2]*self.volume_dims[0]*self.volume_dims[1]).long()
+        coords[1] = tmp / self.volume_dims[0]
+        coords[0] = torch.remainder(tmp, self.volume_dims[0])
+        coords[3].fill_(1)
+
+        # transform to current frame
+        p = torch.mm(world_to_camera, torch.mm(grid_to_world, coords))
+
+        # project into image
+        p[0] = (p[0] * self.intrinsic[0][0]) / p[2] + self.intrinsic[0][2]
+        p[1] = (p[1] * self.intrinsic[1][1]) / p[2] + self.intrinsic[1][2]
+        pi = torch.round(p).long()
+
+        valid_ind_mask = torch.ge(pi[0], 0) * torch.ge(pi[1], 0) * torch.lt(pi[0], self.image_dims[0]) * torch.lt(pi[1], self.image_dims[1])
+        if not valid_ind_mask.any():
+            #print('error: no valid image indices')
+            return None
+        valid_image_ind_x = pi[0][valid_ind_mask]
+        valid_image_ind_y = pi[1][valid_ind_mask]
+        valid_image_ind_lin = valid_image_ind_y * self.image_dims[0] + valid_image_ind_x
+        depth_vals = torch.index_select(depth.view(-1), 0, valid_image_ind_lin)
+        depth_mask = depth_vals.ge(self.depth_min) * depth_vals.le(self.depth_max) * torch.abs(depth_vals - p[2][valid_ind_mask]).le(self.voxel_size)
+
+        if not depth_mask.any():
+            #print('error: no valid depths')
+            return None
+
+        lin_ind_update = lin_ind_volume[valid_ind_mask]
+        lin_ind_update = lin_ind_update[depth_mask]
+        lin_indices_3d = lin_ind_update.new(self.volume_dims[0]*self.volume_dims[1]*self.volume_dims[2] + 1) #needs to be same size for all in batch... (first element has size)
+        lin_indices_2d = lin_ind_update.new(self.volume_dims[0]*self.volume_dims[1]*self.volume_dims[2] + 1) #needs to be same size for all in batch... (first element has size)
+        lin_indices_3d[0] = lin_ind_update.shape[0]
+        lin_indices_2d[0] = lin_ind_update.shape[0]
+        lin_indices_3d[1:1+lin_indices_3d[0]] = lin_ind_update
+        lin_indices_2d[1:1+lin_indices_2d[0]] = torch.index_select(valid_image_ind_lin, 0, torch.nonzero(depth_mask)[:,0])
+        num_ind = lin_indices_3d[0]
+        return lin_indices_3d, lin_indices_2d
+
+
+# Inherit from Function
+class Projection(Function):
+
+    @staticmethod
+    def forward(ctx, label, lin_indices_3d, lin_indices_2d, volume_dims):
+        ctx.save_for_backward(lin_indices_3d, lin_indices_2d)
+        num_label_ft = 1 if len(label.shape) == 2 else label.shape[0]
+        output = label.new(num_label_ft, volume_dims[2], volume_dims[1], volume_dims[0]).fill_(0)
+        num_ind = lin_indices_3d[0]
+        if num_ind > 0:
+            vals = torch.index_select(label.view(num_label_ft, -1), 1, lin_indices_2d[1:1+num_ind])
+            output.view(num_label_ft, -1)[:, lin_indices_3d[1:1+num_ind]] = vals
+        return output
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        grad_label = grad_output.clone()
+        num_ft = grad_output.shape[0]
+        grad_label.data.resize_(num_ft, 32, 41)
+        lin_indices_3d, lin_indices_2d = ctx.saved_variables
+        num_ind = lin_indices_3d.data[0]
+        vals = torch.index_select(grad_output.data.contiguous().view(num_ft, -1), 1, lin_indices_3d.data[1:1+num_ind])
+        grad_label.data.view(num_ft, -1)[:, lin_indices_2d.data[1:1+num_ind]] = vals
+        return grad_label, None, None, None
 
 
 if __name__ == '__main__':
-    gt_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/02747177/fd013bea1e1ffb27c31c70b1ddc95e3f__0__.txt"
-    gt_img_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-renderings/02747177/fd013bea1e1ffb27c31c70b1ddc95e3f/color/color0.png"
-    cam_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-renderings/02747177/fd013bea1e1ffb27c31c70b1ddc95e3f/cam/cam0.json"
-
-    out_txt_file = "/home/parika/WorkingDir/complete3D/Assets/test.txt"
-    out_ply_file = "/home/parika/WorkingDir/complete3D/Assets/test.ply"
-    out = "/home/parika/WorkingDir/complete3D/Assets/"
-    gt_occ = loader.load_sample(gt_file)
-
-    obj_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-data/02747177/fd013bea1e1ffb27c31c70b1ddc95e3f/models/model_normalized.obj"
-    # renderer.generate_images(obj_file, out, 10)
-
-    gt_img = loader.load_img(gt_img_file)
-    transform = loader.get_extrinsic(cam_file)
-
-    gt_occ = gt_occ.unsqueeze(0)
-    transform = np.expand_dims(transform, 0)
-    # proj_img = project(gt_occ, transform)
-    proj_img = project_batch(gt_occ, transform)
-
-    gt_img = gt_img.unsqueeze(0)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    proj_loss = losses.vol_proj_loss(proj_img.float().to(device),
-                                     gt_img.float().to(device), 1, device)
-    print(proj_loss)
-
-    proj_img = proj_img[0].numpy().astype(np.uint8)
-    gt_img = gt_img[0].numpy().astype(np.uint8)
-    proj_img[proj_img == 1] = 255
-    gt_img[gt_img == 1] = 255
-
-    img = Image.fromarray(proj_img, 'L')
-    img.show()
-
-    img = Image.fromarray(gt_img, "L")
-    img.show()
+    intrinsic = make_intrinsic()
+    voxel_size = 1 / 32
+    camera_to_world = torch.tensor(
+        [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 1.2], [0.0, 0.0, 0.0, 1.0]]).cuda()
+    projection_helper = ProjectionHelper(intrinsic, 0.5, 1.5, [512, 512], [32, 32, 32], voxel_size)
+    project_voxel_to_img()
