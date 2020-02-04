@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from PIL import Image
 from torch.autograd import Function
 
 
@@ -13,6 +14,14 @@ def make_intrinsic():
     return intrinsic
 
 
+# create transformation matrix from world to grid
+def make_world_to_grid():
+    world_to_grid = torch.eye(4)
+    world_to_grid[0][3] = world_to_grid[1][3] = world_to_grid[2][3] = 0.5
+    world_to_grid *= 32
+    return world_to_grid
+
+
 class ProjectionHelper():
     def __init__(self, intrinsic, depth_min, depth_max, image_dims, volume_dims, voxel_size):
         self.intrinsic = intrinsic
@@ -23,12 +32,14 @@ class ProjectionHelper():
         self.voxel_size = voxel_size
 
 
+    # z-coord to be taken negative, bcoz we r assuming our camera to be seeing in -ve z- direction
     def depth_to_skeleton(self, ux, uy, depth):
         x = (ux - self.intrinsic[0][2]) / self.intrinsic[0][0]
         y = (uy - self.intrinsic[1][2]) / self.intrinsic[1][1]
-        return torch.Tensor([depth*x, depth*y, depth])
+        return torch.Tensor([depth*x, depth*y, -depth])
 
 
+    # check : might have to change the sign of z-coord to -ve before calculating img coords
     def skeleton_to_depth(self, p):
         x = (p[0] * self.intrinsic[0][0]) / p[2] + self.intrinsic[0][2]
         y = (p[1] * self.intrinsic[1][1]) / p[2] + self.intrinsic[1][2]
@@ -53,21 +64,22 @@ class ProjectionHelper():
         pu = torch.round(torch.bmm(world_to_grid.repeat(8, 1, 1), torch.ceil(p)))
         bbox_min0, _ = torch.min(pl[:, :3, 0], 0)
         bbox_min1, _ = torch.min(pu[:, :3, 0], 0)
-        bbox_min = np.minimum(bbox_min0, bbox_min1)
+        bbox_min = np.minimum(bbox_min0.cpu(), bbox_min1.cpu())
         bbox_max0, _ = torch.max(pl[:, :3, 0], 0)
         bbox_max1, _ = torch.max(pu[:, :3, 0], 0) 
-        bbox_max = np.maximum(bbox_max0, bbox_max1)
+        bbox_max = np.maximum(bbox_max0.cpu(), bbox_max1.cpu())
         return bbox_min, bbox_max
 
 
     # TODO make runnable on cpu as well...
     def compute_projection(self, depth, camera_to_world, world_to_grid):
         # compute projection by voxels -> image
+        voxel_max_dim = [dim-1 for dim in self.volume_dims]
         world_to_camera = torch.inverse(camera_to_world)
         grid_to_world = torch.inverse(world_to_grid)
         voxel_bounds_min, voxel_bounds_max = self.compute_frustum_bounds(world_to_grid, camera_to_world)
-        voxel_bounds_min = np.maximum(voxel_bounds_min, 0).cuda()
-        voxel_bounds_max = np.minimum(voxel_bounds_max, self.volume_dims).float().cuda()
+        voxel_bounds_min = np.minimum(np.maximum(voxel_bounds_min, 0), voxel_max_dim).cuda()
+        voxel_bounds_max = np.minimum(voxel_bounds_max, self.volume_dims).cuda()
 
         # coordinates within frustum bounds
         lin_ind_volume = torch.arange(0, self.volume_dims[0]*self.volume_dims[1]*self.volume_dims[2], out=torch.LongTensor()).cuda()
@@ -100,16 +112,24 @@ class ProjectionHelper():
 
         valid_ind_mask = torch.ge(pi[0], 0) * torch.ge(pi[1], 0) * torch.lt(pi[0], self.image_dims[0]) * torch.lt(pi[1], self.image_dims[1])
         if not valid_ind_mask.any():
-            #print('error: no valid image indices')
+            print('error: no valid image indices')
             return None
         valid_image_ind_x = pi[0][valid_ind_mask]
         valid_image_ind_y = pi[1][valid_ind_mask]
         valid_image_ind_lin = valid_image_ind_y * self.image_dims[0] + valid_image_ind_x
+
+        img = torch.Tensor(512 * 512).fill_(255)
+        img[valid_image_ind_lin] = 0
+        img_np = np.reshape(img.cpu().numpy(), (512, 512))
+        img = Image.fromarray(img_np, 'L')
+        img.show()
+
+
         depth_vals = torch.index_select(depth.view(-1), 0, valid_image_ind_lin)
         depth_mask = depth_vals.ge(self.depth_min) * depth_vals.le(self.depth_max) * torch.abs(depth_vals - p[2][valid_ind_mask]).le(self.voxel_size)
 
         if not depth_mask.any():
-            #print('error: no valid depths')
+            print('error: no valid depths')
             return None
 
         lin_ind_update = lin_ind_volume[valid_ind_mask]
@@ -151,9 +171,10 @@ class Projection(Function):
 
 
 if __name__ == '__main__':
-    intrinsic = make_intrinsic()
+    intrinsic = make_intrinsic().cuda()
     voxel_size = 1 / 32
     camera_to_world = torch.tensor(
         [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 1.2], [0.0, 0.0, 0.0, 1.0]]).cuda()
+    world_to_grid = make_world_to_grid().cuda()
     projection_helper = ProjectionHelper(intrinsic, 0.5, 1.5, [512, 512], [32, 32, 32], voxel_size)
-    project_voxel_to_img()
+    projection_helper.compute_projection(None, camera_to_world, world_to_grid)
