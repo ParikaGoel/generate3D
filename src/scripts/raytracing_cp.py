@@ -68,8 +68,7 @@ def raycast(voxel_grid, cam, color_file, depth_file):
 def generate_raycasted_model(synset_id, model_id):
     params = JSONHelper.read("./parameters.json")
 
-    # outdir = params["shapenet_raytraced"] + synset_id
-    outdir = "/media/sda2/shapenet/shapenet-raytraced/" + synset_id
+    outdir = params["shapenet_raytraced"] + synset_id
     pathlib.Path(outdir).mkdir(parents=True, exist_ok=True)
 
     cam_file = params["shapenet_renderings"] + synset_id + "/" + model_id + "/cam/cam0.json"
@@ -102,7 +101,7 @@ if __name__ == '__main__':
 
     for synset_id in synset_lst:
         for f in glob.glob(params["shapenet"] + synset_id + "/*/models/model_normalized.obj"):
-            model_id = f.split("/", 10)[8]
+            model_id = f.split("/", 8)[6]
             print(synset_id, " : ", model_id)
 
             try:

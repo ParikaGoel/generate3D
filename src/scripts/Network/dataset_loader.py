@@ -19,13 +19,14 @@ def load_img(png_file):
     """
     img = imageio.imread(png_file)
     img = img[:, :, 0]  # we dont need the color values for silhouette
-    img[img < 255] = 0
-    img[img == 255] = 1
+    img[img < 255] = 1
+    img[img == 255] = 0
+    # img will contain the occupancy of the pixels now : 1 refers to object in the pixel
     img = torch.from_numpy(img)
     return img
 
 
-def get_extrinsic(cam_file):
+def get_cam_to_world(cam_file):
     data = JSONHelper.read(cam_file)
     # read the camera pose
     pose = np.empty(0)
@@ -33,9 +34,9 @@ def get_extrinsic(cam_file):
         pose = np.append(pose, val)
 
     pose = np.transpose(np.reshape(pose, (4, 4)))
-    # extrinsic matrix will be the inverse of camera pose
-    extrinsic = np.linalg.inv(pose)
-    return extrinsic
+    # pose[2,3] = 1.2
+    pose = torch.from_numpy(pose).float()
+    return pose
 
 
 def load_sample(txt_file):
@@ -118,9 +119,9 @@ class DatasetLoad(torch.utils.data.Dataset):
         occ_grid = load_sample(input_occ_file)
         occ_gt = load_sample(gt_occ_file)
         img_gt = load_img(gt_img_file)
-        extrinsic = get_extrinsic(cam_file)
+        cam_pose = get_cam_to_world(cam_file)
 
-        return {'occ_grid': occ_grid, 'occ_gt': occ_gt, 'img_gt': img_gt, 'transform': extrinsic}
+        return {'occ_grid': occ_grid, 'occ_gt': occ_gt, 'img_gt': img_gt, 'cam_pose': cam_pose}
 
 
 if __name__ == '__main__':
