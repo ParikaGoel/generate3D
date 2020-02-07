@@ -27,13 +27,13 @@ def make_world_to_grid():
 
 class ProjectionHelper():
     def __init__(self, device, intrinsic, depth_min, depth_max, image_dims, volume_dims, voxel_size):
-        self.intrinsic = intrinsic
+        self.device = device
+        self.intrinsic = intrinsic.to(device)
         self.depth_min = depth_min
         self.depth_max = depth_max
         self.image_dims = image_dims
         self.volume_dims = volume_dims
         self.voxel_size = voxel_size
-        self.device = device
 
     # z-coord to be taken negative, bcoz we r assuming our camera to be seeing in -ve z- direction
     def depth_to_skeleton(self, ux, uy, depth):
@@ -50,11 +50,10 @@ class ProjectionHelper():
         img = Image.fromarray(img_np, 'L')
         img.show()
 
-    def compute_projection(self, occ_grid, camera_to_world, world_to_grid):
+    def compute_projection(self, rainbow_occ, occ_grid, camera_to_world, world_to_grid):
         occ_grid = occ_grid[0]  # removes the channel dimension
 
         world_to_camera = torch.inverse(camera_to_world)
-        # world_to_camera = camera_to_world
         world_to_camera[2,3] = -1.2
         grid_to_world = torch.inverse(world_to_grid)
 
@@ -70,7 +69,7 @@ class ProjectionHelper():
         lin_ind_volume = lin_ind_volume[occ_mask]
 
         # here lin_ind_volume contains the grid coordinates which are occupied
-        grid_coords = camera_to_world.new(4, lin_ind_volume.size(0))
+        grid_coords = camera_to_world.new(4, lin_ind_volume.size(0)).int()
         grid_coords[2] = lin_ind_volume / (self.volume_dims[0] * self.volume_dims[1])
         tmp = lin_ind_volume - (grid_coords[2] * self.volume_dims[0] * self.volume_dims[1]).long()
         grid_coords[1] = tmp / self.volume_dims[0]
@@ -78,20 +77,21 @@ class ProjectionHelper():
         grid_coords[3].fill_(1)
         # coords contains the occupied grid coordinates : shape (4 x N) N -> number of grid cells occupied
 
-        grid_coords_max = grid_coords + torch.tensor([-0.5, -0.5, -0.5, 0.0]).to(self.device)[:, None]
-        grid_coords_min = grid_coords + torch.tensor([0.5, 0.5, 0.5, 0.0]).to(self.device)[:, None]
+        grid_coords_max = grid_coords + torch.tensor([-1.0, -1.0, -1.0, 0.0]).to(self.device)[:, None]
+        grid_coords_min = grid_coords + torch.tensor([1.0, 1.0, 1.0, 0.0]).to(self.device)[:, None]
 
         # transform to current frame
-        pmax = torch.mm(world_to_camera, torch.mm(grid_to_world, grid_coords_max))
-        pmin = torch.mm(world_to_camera, torch.mm(grid_to_world, grid_coords_min))
+        cmax = torch.mm(world_to_camera, torch.mm(grid_to_world, grid_coords_max))
+        cmin = torch.mm(world_to_camera, torch.mm(grid_to_world, grid_coords_min))
+        cmax[2] = -cmax[2]
+        cmin[2] = -cmin[2]
+        cmax[1] = -cmax[1]
+        cmin[1] = -cmin[1]
 
         # project into image
-        pmax[0] = (pmax[0] * self.intrinsic[0][0]) / pmax[2] + self.intrinsic[0][2]
-        pmax[1] = (pmax[1] * self.intrinsic[1][1]) / pmax[2] + self.intrinsic[1][2]
+        pmax = torch.matmul(self.intrinsic, cmax)
         pmax = torch.round(pmax).long()
-
-        pmin[0] = (pmin[0] * self.intrinsic[0][0]) / pmin[2] + self.intrinsic[0][2]
-        pmin[1] = (pmin[1] * self.intrinsic[1][1]) / pmin[2] + self.intrinsic[1][2]
+        pmin = torch.matmul(self.intrinsic, cmin)
         pmin = torch.round(pmin).long()
 
         valid_ind_mask = torch.ge(pmax[0], 0) * torch.ge(pmax[1], 0) * \
@@ -113,8 +113,7 @@ class ProjectionHelper():
             self.volume_dims[0] * self.volume_dims[1] * self.volume_dims[2])
 
         for i in range(lin_ind_volume.size(0)):
-            index_map[pmin[1, i]:pmax[1, i], pmin[0, i]:pmax[0, i]] = torch.clamp(
-                index_map[pmin[1, i]:pmax[1, i], pmin[0, i]:pmax[0, i]], max=lin_ind_volume[i])
+            index_map[pmin[1, i]:pmax[1, i], pmax[0, i]:pmin[0, i]] = lin_ind_volume[i]
 
         img_mask = torch.lt(index_map, self.volume_dims[0] * self.volume_dims[1] * self.volume_dims[2])
         self.show_projection(img_mask)
@@ -169,10 +168,12 @@ class Projection(Function):
 if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     gt_file = "/media/sda2/shapenet/shapenet-voxelized-gt/02747177/fd013bea1e1ffb27c31c70b1ddc95e3f__0__.txt"
-    gt_img_file = "/media/sda2/shapenet/renderings/02747177/fd013bea1e1ffb27c31c70b1ddc95e3f/color/color1.png"
-    cam_file = "/media/sda2/shapenet/renderings/02747177/fd013bea1e1ffb27c31c70b1ddc95e3f/pose/pose1.json"
+    rainbow_file = "/media/sda2/shapenet/test/rainbow_0_.txt"
+    gt_img_file = "/media/sda2/shapenet/renderings/02747177/fd013bea1e1ffb27c31c70b1ddc95e3f/color/color0.png"
+    cam_file = "/media/sda2/shapenet/renderings/02747177/fd013bea1e1ffb27c31c70b1ddc95e3f/pose/pose0.json"
 
     gt_occ = loader.load_sample(gt_file).to(device)  # occupancy grid as pytorch tensor (shape: [1,D,H,W])
+    rainbow_occ = loader.load_color_sample(rainbow_file).to(device)
     gt_img = loader.load_img(gt_img_file).to(device)
     camera_to_world = loader.get_cam_to_world(cam_file).to(device)
 
@@ -181,7 +182,7 @@ if __name__ == '__main__':
     world_to_grid = make_world_to_grid().to(device)
 
     projection_helper = ProjectionHelper(device, intrinsic, 0.5, 1.5, [512, 512], [32, 32, 32], voxel_size)
-    lin_index_map = projection_helper.compute_projection(gt_occ, camera_to_world, world_to_grid)
+    lin_index_map = projection_helper.compute_projection(rainbow_occ, gt_occ, camera_to_world, world_to_grid)
     proj_img = projection_helper.forward(gt_occ, lin_index_map)
 
     proj_loss = losses.vol_proj_loss(proj_img.unsqueeze(0).float(),

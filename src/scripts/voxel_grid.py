@@ -193,18 +193,35 @@ def txt_to_mesh(txt_file, ply_file, grid_size = None):
     min_bound = np.array([-grid_size/2,-grid_size/2,-grid_size/2])
     voxel_scale = grid_size / vox_dim
 
+    color = np.array((0, 255, 255))
+    old_k = 10
+
     voxel = np.loadtxt(txt_file, dtype=int)
     for data in voxel:
         grid_coord = np.array((data[0], data[1], data[2])).astype(int)
-        color = np.array((data[3], data[4], data[5])).astype(int)
+        grid_color = np.array((data[3], data[4], data[5])).astype(int)
         i = grid_coord[0]
         j = grid_coord[1]
         k = grid_coord[2]
+
+        if k != old_k:
+            if color[1] > 50:
+                color[1] -= 50
+            elif color[2] > 50:
+                color[2] -= 50
+            else:
+                if color[0] < 200:
+                    color[0] += 50
+                else:
+                    color[1] += 50
+
+        old_k = k
         for cube_vert in cube_verts:
             vertex = (cube_vert * 0.45 + np.array([i, j, k])).astype(float)
+            # vertex = (cube_vert + np.array([i, j, k])).astype(float)
             vertex *= voxel_scale
             vertex += min_bound
-            vertex = np.append(vertex, color)
+            vertex = np.append(vertex, grid_color)
             vertex = list(vertex)
             verts.append(vertex)
 
@@ -240,3 +257,9 @@ def write_ply(filename, verts, faces):
         file.write('3 %d %d %d\n' % tuple(face))
 
     file.close()
+
+
+if __name__ == '__main__':
+    txt_file = "/media/sda2/shapenet/test/rainbow_0_.txt"
+    ply_file = "/media/sda2/shapenet/test/rainbow_0_.ply"
+    txt_to_mesh(txt_file, ply_file)

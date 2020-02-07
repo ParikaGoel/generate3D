@@ -93,16 +93,26 @@ def generate_images(obj_file, out_folder, num_renderings):
     scene = create_scene(obj_file)
     mesh_nodes = scene.get_nodes()
 
-    camera = pyrender.IntrinsicsCamera(fx=focal, fy=focal,
-                                       cx=render_img_width / 2,
-                                       cy=render_img_height / 2,
-                                       znear=znear, zfar=zfar)
+    camera = pyrender.PerspectiveCamera(yfov=np.pi / 3.0)
+    # camera = pyrender.IntrinsicsCamera(fx=focal, fy=focal,
+    #                                    cx=render_img_width / 2,
+    #                                    cy=render_img_height / 2,
+    #                                    znear=znear, zfar=zfar)
+    #
+    # cam_pose = np.eye(4)
+    # cam_pose[:3, 3] = [0.0, 0.0, cam_depth]
 
-    cam_pose = np.eye(4)
-    cam_pose[:3, 3] = [0.0, 0.0, cam_depth]
+    rot_mat = "0.999972 -0.00719161 0.00226356 0 0.00750477 0.978209 -0.207487 0 -0.000722073 0.207498 0.978235 0 0 0 0 1 "
+    rot_lst = np.fromstring(rot_mat, dtype=float, sep=' ').reshape(4,4)
+    TranslationVector = "0.0168847 -0.346361 1.69093 1"
+    TranslationVector = np.fromstring(TranslationVector, dtype=float, sep=' ')
+    cam_pose = rot_lst
+    cam_pose[:,3] = TranslationVector
 
     # pose -> gives the pose of the camera in the world system; camera to world transformation
     scene.add(camera, pose=cam_pose)
+
+    pyrender.Viewer(scene, show_world_axis=True)
 
     count = 0
     axis = 'y'
@@ -178,39 +188,37 @@ if __name__ == '__main__':
     file = "/media/sda2/shapenet/renderings/failed_cases.json"
 
     synset_id = "02747177"
-    # model_id = "fd013bea1e1ffb27c31c70b1ddc95e3f"
+    model_id = "fd013bea1e1ffb27c31c70b1ddc95e3f"
 
-    # obj_file = params["shapenet"] + "/" + synset_id + "/" + model_id + "/models/model_normalized.obj"
-    # # outdir = params["shapenet_renderings"] + "/" + synset_id + "/" + model_id
-    # outdir = "/media/sda2/shapenet/renderings" + "/" + synset_id + "/" + model_id
-    # pathlib.Path(outdir).mkdir(parents=True, exist_ok=True)
+    obj_file = params["shapenet"] + "/" + synset_id + "/" + model_id + "/models/model_normalized.obj"
+    # outdir = params["shapenet_renderings"] + "/" + synset_id + "/" + model_id
+    outdir = "/media/sda2/shapenet/renderings" + "/" + synset_id + "/" + model_id
+    pathlib.Path(outdir).mkdir(parents=True, exist_ok=True)
+
+    generate_images(obj_file, outdir, num_renderings)
+
+    # for f in glob.glob(params["shapenet"] + "/**/*/models/model_normalized.obj"):
+    # # for f in glob.glob(params["shapenet"] + synset_id + "/*/models/model_normalized.obj"):
+    #     synset_id = f.split("/", 8)[5]
+    #     model_id = f.split("/", 8)[6]
+    #     print("synset_id: ", synset_id, " , model_id: ", model_id)
+    #     try :
+    #         obj_file = params["shapenet"] + "/" + synset_id + "/" + model_id + "/models/model_normalized.obj"
+    #         outdir = "/media/sda2/shapenet/renderings" + "/" + synset_id + "/" + model_id
     #
-    # generate_images(obj_file, outdir, num_renderings)
-
-    for f in glob.glob(params["shapenet"] + "/**/*/models/model_normalized.obj"):
-    # for f in glob.glob(params["shapenet"] + synset_id + "/*/models/model_normalized.obj"):
-        synset_id = f.split("/", 8)[5]
-        model_id = f.split("/", 8)[6]
-        print("synset_id: ", synset_id, " , model_id: ", model_id)
-        try :
-            obj_file = params["shapenet"] + "/" + synset_id + "/" + model_id + "/models/model_normalized.obj"
-            outdir = "/media/sda2/shapenet/renderings" + "/" + synset_id + "/" + model_id
-
-            if os.path.exists(outdir):
-                print(synset_id, " : ", model_id, " already rendered. Skipping......")
-                continue
-
-            pathlib.Path(outdir).mkdir(parents=True, exist_ok=True)
-
-            generate_images(obj_file, outdir, num_renderings)
-
-            dir = params["shapenet"] + "/" + synset_id + "/" + model_id
-            shutil.rmtree(dir)
-        except:
-            print("in exception block\n")
-            failed_ids.append(model_id)
-            pass
-
-    failed_cases[model_id] = failed_ids
-    JSONHelper.write(file, failed_cases)
+    #         if os.path.exists(outdir):
+    #             print(synset_id, " : ", model_id, " already rendered. Skipping......")
+    #             continue
+    #
+    #         pathlib.Path(outdir).mkdir(parents=True, exist_ok=True)
+    #
+    #         generate_images(obj_file, outdir, num_renderings)
+    #
+    #     except:
+    #         print("in exception block\n")
+    #         failed_ids.append(model_id)
+    #         pass
+    #
+    # failed_cases[model_id] = failed_ids
+    # JSONHelper.write(file, failed_cases)
 

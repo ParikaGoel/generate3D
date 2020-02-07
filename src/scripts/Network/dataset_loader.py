@@ -34,9 +34,26 @@ def get_cam_to_world(cam_file):
         pose = np.append(pose, val)
 
     pose = np.transpose(np.reshape(pose, (4, 4)))
-    # pose[2,3] = 1.2
     pose = torch.from_numpy(pose).float()
     return pose
+
+
+def load_color_sample(txt_file):
+    """
+        loads the color grid from the text file and returns it as a pytorch tensor
+        :param input_file: Text file storing grid coordinates and corresponding color values
+        :return: occupancy grid as pytorch tensor (shape: [C,D,H,W])
+        """
+    voxel = np.loadtxt(txt_file, dtype=int)
+    color_grid = np.zeros((config.vox_dim, config.vox_dim, config.vox_dim, 3)).astype(int)
+
+    for data in voxel:
+        grid_coord = np.array((data[0], data[1], data[2])).astype(int)
+        color = np.array((data[3], data[4], data[5])).astype(int)
+        color_grid[grid_coord[0], grid_coord[1], grid_coord[2], :] = color
+
+    color_grid = torch.from_numpy(color_grid.transpose(3, 2, 1, 0))
+    return color_grid
 
 
 def load_sample(txt_file):
