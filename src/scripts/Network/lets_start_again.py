@@ -87,6 +87,7 @@ class ProjectionHelper():
 
         # project into image
         p = camera_coords.clone()
+        p[:,2] = p[:,2] - 1.0
         p[0] = (p[0] * intrinsic[0][0]) / torch.abs(p[2]) + intrinsic[0][2]
         p[1] = (p[1] * intrinsic[1][1]) / torch.abs(p[2]) + intrinsic[1][2]
         p = torch.round(p).long()
@@ -98,11 +99,10 @@ class ProjectionHelper():
         p = torch.clamp(p, min=0, max=511)
         p_range = torch.clamp(p_range, min=0, max=511)
 
-        index_map = torch.empty((self.image_dims[1], self.image_dims[0]), dtype=torch.long).fill_(
-            self.volume_dims[0] * self.volume_dims[1] * self.volume_dims[2])
+        index_map = torch.empty((self.image_dims[1], self.image_dims[0]), dtype=torch.long).fill_(0)
 
         for i in range(lin_ind_volume.size(0)):
-            index_map[p[1, i]:p_range[1, i], p[0, i]:p_range[0, i]] = torch.clamp(index_map[p[1, i]:p_range[1, i], p[0, i]:p_range[0, i]], max=lin_ind_volume[i])
+            index_map[p[1, i]:p_range[1, i], p[0, i]:p_range[0, i]] = torch.clamp(index_map[p[1, i]:p_range[1, i], p[0, i]:p_range[0, i]], min=lin_ind_volume[i])
 
         self.show_color_projection(index_map, flatten_color_grid)
 
@@ -151,13 +151,13 @@ class ProjectionHelper():
         p = torch.clamp(p, min=0, max=511)
         p_range = torch.clamp(p_range, min=0, max=511)
 
-        index_map = torch.empty((self.image_dims[1], self.image_dims[0]), dtype=torch.long).fill_(
-            self.volume_dims[0] * self.volume_dims[1] * self.volume_dims[2])
+        index_map = torch.empty((self.image_dims[1], self.image_dims[0]), dtype=torch.long).fill_(0)
 
         for i in range(lin_ind_volume.size(0)):
-            index_map[p[1, i]:p_range[1, i], p[0, i]:p_range[0, i]] = torch.clamp(index_map[p[1, i]:p_range[1, i], p[0, i]:p_range[0, i]], max=lin_ind_volume[i])
+            index_map[p[1, i]:p_range[1, i], p[0, i]:p_range[0, i]] = torch.clamp(
+                index_map[p[1, i]:p_range[1, i], p[0, i]:p_range[0, i]], min=lin_ind_volume[i])
 
-        img_mask = torch.lt(index_map, self.volume_dims[0] * self.volume_dims[1] * self.volume_dims[2])
+        img_mask = torch.gt(index_map, 0)
         self.show_projection(img_mask)
 
         index_map = torch.flatten(index_map)
