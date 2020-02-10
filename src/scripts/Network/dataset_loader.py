@@ -45,14 +45,15 @@ def load_color_sample(txt_file):
         :return: occupancy grid as pytorch tensor (shape: [C,D,H,W])
         """
     voxel = np.loadtxt(txt_file, dtype=int)
-    color_grid = np.zeros((config.vox_dim, config.vox_dim, config.vox_dim, 3)).astype(int)
+    color_grid = np.full((3, config.vox_dim, config.vox_dim, config.vox_dim), 256).astype(int)
 
     for data in voxel:
         grid_coord = np.array((data[0], data[1], data[2])).astype(int)
         color = np.array((data[3], data[4], data[5])).astype(int)
-        color_grid[grid_coord[0], grid_coord[1], grid_coord[2], :] = color
+        color_grid[:, grid_coord[2], grid_coord[1], grid_coord[0]] = color
 
-    color_grid = torch.from_numpy(color_grid.transpose(3, 2, 1, 0))
+    # color_grid = torch.from_numpy(color_grid.transpose(3, 2, 1, 0))
+    color_grid = torch.from_numpy(color_grid)
     return color_grid
 
 
@@ -67,9 +68,9 @@ def load_sample(txt_file):
 
     for data in voxel:
         grid_coord = np.array((data[0], data[1], data[2])).astype(int)
-        occ_grid[grid_coord[0], grid_coord[1], grid_coord[2]] = 1
+        occ_grid[grid_coord[2], grid_coord[1], grid_coord[0]] = 1
 
-    occ_grid = torch.from_numpy(occ_grid.transpose(2, 1, 0))
+    occ_grid = torch.from_numpy(occ_grid)
     occ_grid = occ_grid.float().unsqueeze(0)  # <- Adds the channel dimension
     return occ_grid
 

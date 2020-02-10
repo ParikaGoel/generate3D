@@ -42,12 +42,11 @@ def raycast(voxel_grid):
             ray_length = np.sqrt(np.sum(ray ** 2))
             unit_ray = ray / ray_length
 
-            # # test projecting only one layer of the image
+            # test projecting only one layer of the image
             # grid_coord = voxel_grid.get_grid_coord(ray)
             # if grid_coord is not None:
-            #     if not np.all(image[v, u] > 200):
-            #         voxel_grid.set_occupancy(grid_coord, 1)
-            #         voxel_grid.set_color(grid_coord, image[v, u])
+            #     voxel_grid.set_occupancy(grid_coord, 1)
+            #     voxel_grid.set_color(grid_coord, color)
 
             while voxel_grid.contains_global_coord(ray):
                 grid_coord = voxel_grid.get_grid_coord(ray)
@@ -58,7 +57,7 @@ def raycast(voxel_grid):
                 ray_length = ray_length + (voxel_grid.voxel_scale / 2)
                 ray = unit_ray * ray_length
 
-        count = count + 1
+            count = count + 1
 
 
 if __name__ == '__main__':

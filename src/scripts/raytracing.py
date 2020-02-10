@@ -92,12 +92,12 @@ def generate_raycasted_model(synset_id, model_id):
 
 if __name__ == '__main__':
     synset_lst = []
-    synset_lst.append("02691156")
+    synset_lst.append("02828884")
 
     params = JSONHelper.read("./parameters.json")
 
     failed_cases = {}
-    file = "./failed_cases.json"
+    file = params["shapenet_raytraced"] + "failed_cases.json"
 
     for synset_id in synset_lst:
         for f in glob.glob(params["shapenet"] + synset_id + "/*/models/model_normalized.obj"):

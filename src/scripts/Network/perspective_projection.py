@@ -50,6 +50,109 @@ class ProjectionHelper():
         img = Image.fromarray(img_np, 'L')
         img.show()
 
+    def show_color_projection(self, index_map, flatten_color_grid):
+        proj_img = torch.empty((self.image_dims[1], self.image_dims[0], 3), dtype=torch.uint8).fill_(255)
+
+        for u in range(512):
+            for v in range(512):
+                if index_map[v,u] != 32768:
+                    proj_img[v, u, :] = flatten_color_grid[:,index_map[v, u]]
+
+        img_np = proj_img.cpu().numpy().astype(np.uint8)
+        img = Image.fromarray(img_np)
+        img.show()
+
+    def compute_color_projection(self, color_grid, camera_to_world, world_to_grid):
+        """
+
+        :param color_grid: shape : C x D x H x W
+        :param camera_to_world:
+        :param world_to_grid:
+        :return:
+        """
+        flatten_color_grid = torch.flatten(color_grid, start_dim=1, end_dim=-1)
+        occ_mask = torch.lt(flatten_color_grid[0], 256) * torch.lt(flatten_color_grid[1], 256) * torch.lt(flatten_color_grid[2], 256)
+        occ_mask = torch.flatten(occ_mask, start_dim=0, end_dim=-1)
+
+        world_to_camera = torch.inverse(camera_to_world)
+        world_to_camera[:3, 3] = torch.tensor([0.0, 0.0, 0.0])
+        # world_to_camera[2, 3] = -1.2
+        grid_to_world = torch.inverse(world_to_grid)
+
+        if not occ_mask.any():
+            print('error: nothing in occupancy grid')
+            return None
+
+        lin_ind_volume = torch.arange(0, self.volume_dims[0] * self.volume_dims[1] * self.volume_dims[2],
+                                      out=torch.LongTensor()).to(self.device)
+        lin_ind_volume = lin_ind_volume[occ_mask]
+
+        # here lin_ind_volume contains the grid coordinates which are occupied
+        grid_coords = camera_to_world.new(4, lin_ind_volume.size(0)).int()
+        grid_coords[2] = lin_ind_volume / (self.volume_dims[0] * self.volume_dims[1])
+        tmp = lin_ind_volume - (grid_coords[2] * self.volume_dims[0] * self.volume_dims[1]).long()
+        grid_coords[1] = tmp / self.volume_dims[0]
+        grid_coords[0] = torch.remainder(tmp, self.volume_dims[0])
+        grid_coords[3].fill_(1)
+        # coords contains the occupied grid coordinates : shape (4 x N) N -> number of grid cells occupied
+
+        grid_coords_max = grid_coords + torch.tensor([-0.5, -0.5, -0.5, 0.0]).to(self.device)[:, None]
+        grid_coords_min = grid_coords + torch.tensor([0.5, 0.5, 0.5, 0.0]).to(self.device)[:, None]
+
+        # transform to current frame
+        cmax = torch.mm(world_to_camera, torch.mm(grid_to_world, grid_coords_max))
+        cmin = torch.mm(world_to_camera, torch.mm(grid_to_world, grid_coords_min))
+        cmax[2] = torch.abs(cmax[2])
+        cmin[2] = torch.abs(cmin[2])
+        cmax[1] = -cmax[1]
+        cmin[1] = -cmin[1]
+
+        # project into image
+        pmax = cmax
+        pmin = cmin
+        pmax[0] = (pmax[0] * intrinsic[0][0]) / pmax[2] + intrinsic[0][2]
+        pmax[1] = (pmax[1] * intrinsic[1][1]) / pmax[2] + intrinsic[1][2]
+        pmax = torch.round(pmax).long()
+
+        pmin[0] = (pmin[0] * intrinsic[0][0]) / pmin[2] + intrinsic[0][2]
+        pmin[1] = (pmin[1] * intrinsic[1][1]) / pmin[2] + intrinsic[1][2]
+        pmin = torch.round(pmin).long()
+        # pmax = torch.mm(self.intrinsic, cmax)
+        # pmax[:2] = pmax[:2] / pmax[2]
+        # pmax = torch.round(pmax).long()
+        # pmin = torch.mm(self.intrinsic, cmin)
+        # pmin[:2] = pmin[:2] / pmin[2]
+        # pmin = torch.round(pmin).long()
+
+        valid_ind_mask = torch.ge(pmax[0], 0) * torch.ge(pmax[1], 0) * \
+                         torch.lt(pmax[0], self.image_dims[0]) * \
+                         torch.lt(pmax[1], self.image_dims[1]) * \
+                         torch.ge(pmin[0], 0) * torch.ge(pmin[1], 0) * \
+                         torch.lt(pmin[0], self.image_dims[0]) * \
+                         torch.lt(pmin[1], self.image_dims[1])
+
+        if not valid_ind_mask.any():
+            print('error: nothing projected in image space')
+            return None
+
+        pmax = pmax[:, valid_ind_mask]
+        pmin = pmin[:, valid_ind_mask]
+        lin_ind_volume = lin_ind_volume[valid_ind_mask]
+
+        index_map = torch.empty((self.image_dims[1], self.image_dims[0]), dtype=torch.long).fill_(0)
+        # index_map = torch.empty((self.image_dims[1], self.image_dims[0]), dtype=torch.long).fill_(
+        #     self.volume_dims[0] * self.volume_dims[1] * self.volume_dims[2])
+
+        for i in range(lin_ind_volume.size(0)):
+            index_map[pmax[1, i]:pmin[1, i], pmax[0, i]:pmin[0, i]] = torch.clamp(index_map[pmax[1, i]:pmin[1, i], pmax[0, i]:pmin[0, i]], min = lin_ind_volume[i])
+
+        # index_map = torch.flatten(index_map)
+        self.show_color_projection(index_map, flatten_color_grid)
+
+        index_map = torch.flatten(index_map)
+        return index_map
+
+
     def compute_projection(self, rainbow_occ, occ_grid, camera_to_world, world_to_grid):
         occ_grid = occ_grid[0]  # removes the channel dimension
 
@@ -167,7 +270,7 @@ class Projection(Function):
 
 if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    gt_file = "/media/sda2/shapenet/shapenet-voxelized-gt/02747177/fd013bea1e1ffb27c31c70b1ddc95e3f__0__.txt"
+    gt_file = "/media/sda2/shapenet/test/fd013bea1e1ffb27c31c70b1ddc95e3f__test__.txt"
     rainbow_file = "/media/sda2/shapenet/test/rainbow_0_.txt"
     gt_img_file = "/media/sda2/shapenet/renderings/02747177/fd013bea1e1ffb27c31c70b1ddc95e3f/color/color0.png"
     cam_file = "/media/sda2/shapenet/renderings/02747177/fd013bea1e1ffb27c31c70b1ddc95e3f/pose/pose0.json"
@@ -182,6 +285,7 @@ if __name__ == '__main__':
     world_to_grid = make_world_to_grid().to(device)
 
     projection_helper = ProjectionHelper(device, intrinsic, 0.5, 1.5, [512, 512], [32, 32, 32], voxel_size)
+    projection_helper.compute_color_projection(rainbow_occ, camera_to_world, world_to_grid)
     lin_index_map = projection_helper.compute_projection(rainbow_occ, gt_occ, camera_to_world, world_to_grid)
     proj_img = projection_helper.forward(gt_occ, lin_index_map)
 
