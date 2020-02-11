@@ -43,19 +43,27 @@ def raycast(voxel_grid):
             unit_ray = ray / ray_length
 
             # test projecting only one layer of the image
-            # grid_coord = voxel_grid.get_grid_coord(ray)
-            # if grid_coord is not None:
-            #     voxel_grid.set_occupancy(grid_coord, 1)
-            #     voxel_grid.set_color(grid_coord, color)
+            grid_coord = voxel_grid.get_grid_coord(ray)
+            if grid_coord is not None:
+                voxel_grid.set_occupancy(grid_coord, 1)
+                voxel_grid.set_color(grid_coord, color)
 
-            while voxel_grid.contains_global_coord(ray):
-                grid_coord = voxel_grid.get_grid_coord(ray)
-                if grid_coord is not None:
-                        voxel_grid.set_occupancy(grid_coord, 1)
-                        voxel_grid.set_color(grid_coord, color)
+            ray_length = ray_length + (voxel_grid.voxel_scale * 1.5)
+            ray = unit_ray * ray_length
 
-                ray_length = ray_length + (voxel_grid.voxel_scale / 2)
-                ray = unit_ray * ray_length
+            grid_coord = voxel_grid.get_grid_coord(ray)
+            if grid_coord is not None:
+                voxel_grid.set_occupancy(grid_coord, 1)
+                voxel_grid.set_color(grid_coord, color)
+
+            # while voxel_grid.contains_global_coord(ray):
+            #     grid_coord = voxel_grid.get_grid_coord(ray)
+            #     if grid_coord is not None:
+            #             voxel_grid.set_occupancy(grid_coord, 1)
+            #             voxel_grid.set_color(grid_coord, color)
+            #
+            #     ray_length = ray_length + (voxel_grid.voxel_scale / 2)
+            #     ray = unit_ray * ray_length
 
             count = count + 1
 
@@ -63,8 +71,8 @@ def raycast(voxel_grid):
 if __name__ == '__main__':
     cam_file = "/media/sda2/shapenet/test/fd013bea1e1ffb27c31c70b1ddc95e3f/pose/pose0.json"
     image_file = "/media/sda2/shapenet/test/fd013bea1e1ffb27c31c70b1ddc95e3f/color/color0.png"
-    voxel_file = "/media/sda2/shapenet/test/rainbow_0_.ply"
-    voxel_txt_file = "/media/sda2/shapenet/test/rainbow_0_.txt"
+    voxel_file = "/media/sda2/shapenet/test/rainbow_2_layers_.ply"
+    voxel_txt_file = "/media/sda2/shapenet/test/rainbow_2_layers_.txt"
 
     cam = load_camera(cam_file)
     voxel_grid = create_voxel_grid(cam)

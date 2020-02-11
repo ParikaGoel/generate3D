@@ -1,10 +1,12 @@
 import torch
 
 if __name__=='__main__':
-    # t = torch.empty([2, 2, 2], dtype=torch.int16).fill_(256)
-    t = torch.arange(0, 8).reshape((2,2,2)).unsqueeze(0)
-    t = t.repeat(3,1,1,1)
-    print(t)
-    t = torch.flatten(t, start_dim=1)
-    print(t)
+    vertex_coords = torch.tensor([[[22, 23],
+                                  [25, 26]],
+                                 [[24, 27],
+                                  [13, 29]]])
+
+    min = torch.min(vertex_coords, dim=0)
+
+    print(min)
 
