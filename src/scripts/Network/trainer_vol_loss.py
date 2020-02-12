@@ -45,8 +45,6 @@ class Trainer:
     def loss_and_optimizer(self):
         self.criterion = losses.weighted_bce
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
-        # self.optimizer = torch.optim.SGD(self.model.parameters(), lr=config.lr,
-        #                                  momentum=config.momentum, weight_decay=config.weight_decay)
 
     def train(self, epoch):
         self.model.train()
@@ -111,39 +109,17 @@ class Trainer:
 
 
 if __name__ == '__main__':
-    # synset_train_lst = ['02691156', '02747177', '02773838', '02801938', '02843684', '02933112', '02942699',
-    #                     '04074963', '04099429', '04460130', '04468005'] #, '03938244']
     synset_train_lst = ['02747177']
-    # synset_val_lst = ['02946921', '03636649', '03710193', '03759954', '04554684']
-    synset_val_lst = ['02747177']
-
     train_list = []
-    # val_list =[]
 
     for synset_id in synset_train_lst:
         for f in glob.glob(params["shapenet_raytraced"] + synset_id + "/*.txt"):
             model_id = f[f.rfind('/') + 1:f.rfind('.')]
             train_list.append({'synset_id': synset_id, 'model_id': model_id})
 
-    # for synset_id in synset_val_lst:
-    #     for f in glob.glob(params["shapenet_raytraced"] + synset_id + "/*.txt"):
-    #         model_id = f[f.rfind('/') + 1:f.rfind('.')]
-    #         val_list.append({'synset_id': synset_id, 'model_id': model_id})
-
     print("Models not being used in training: ", train_list[330:])
     val_list = train_list[250:330]
     train_list = train_list[:250]
-
-    # counter = 0
-    # for f in glob.glob(params["shapenet_raytraced"] + "04468005" + "/*.txt"):
-    #     model_id = f[f.rfind('/') + 1:f.rfind('.')]
-    #     if counter < 250:
-    #         train_list.append({'synset_id': '04468005', 'model_id': model_id})
-    #     elif counter > 260:
-    #         break
-    #     else:
-    #         print("04468005 : ", model_id)
-    #     counter = counter + 1
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

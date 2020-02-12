@@ -66,7 +66,8 @@ def load_pose(pose_file):
         pose = np.append(pose, val)
 
     pose = np.transpose(np.reshape(pose, (4, 4)))
-    pose = torch.flatten(torch.from_numpy(pose).float())
+    pose = torch.from_numpy(pose).float()
+    pose[2, 3] = -1.2
     return pose
 
 

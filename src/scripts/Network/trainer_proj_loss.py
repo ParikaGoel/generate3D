@@ -8,13 +8,13 @@ import pathlib
 import losses
 import JSONHelper
 import numpy as np
-from model import *
 import torch.nn as nn
 import torch.optim as optim
+from model_proj_layer import *
 import dataset_loader as dataloader
 import torch.utils.data as torchdata
-import perspective_projection as projector
 from torch.utils.tensorboard import SummaryWriter
+from perspective_projection import ProjectionHelper
 
 params = JSONHelper.read("../parameters.json")
 
@@ -51,18 +51,20 @@ class Trainer:
         for idx, sample in enumerate(self.dataloader_train):
             occ_input = sample['occ_grid'].to(self.device)
             occ_gt = sample['occ_gt'].to(self.device)
-            img_gt = sample['img_gt'].to(self.device)
-            transform = sample['transform']  # transform is numpy array
+            imgs_gt = torch.autograd.Variable(sample['imgs_gt'].to(self.device))
+            poses = sample['poses'].to(self.device)
 
             # zero the parameter gradients
             self.optimizer.zero_grad()
 
             # ===================forward=====================
-            occ_output = self.model(occ_input)
-            vol_loss = losses.weighted_bce(occ_output, occ_gt, 2, self.device)
-            proj_img = projector.project_batch(occ_output, transform).to(self.device)
-            proj_loss = losses.vol_proj_loss(proj_img, img_gt, 1, self.device)
-            loss = vol_loss + proj_loss
+            projection_helper = ProjectionHelper()
+            # TODO: Check if it can be saved
+            index_map = projection_helper.project_batch_n_views(occ_input, poses)
+            proj_imgs = self.model(torch.autograd.Variable(occ_input),
+                                   torch.autograd.Variable(index_map))
+            loss = losses.vol_proj_loss(proj_imgs, imgs_gt, 1, self.device)
+            # loss = torch.autograd.Variable(loss, requires_grad=True)
 
             # ===================backward + optimize====================
             loss.backward()
@@ -71,7 +73,7 @@ class Trainer:
             # ===================log========================
             batch_loss += loss.item()
 
-            print('Training : [%d : %5d] vol_loss: %.3f, proj_loss: %.3f, loss: %.3f' % (epoch + 1, idx + 1, vol_loss.item(), proj_loss.item(), loss.item()))
+            print('Training : [%d : %5d] loss: %.3f' % (epoch + 1, idx + 1, loss.item()))
 
         train_loss = batch_loss / (idx + 1)
         return train_loss

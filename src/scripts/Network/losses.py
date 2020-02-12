@@ -67,17 +67,20 @@ def weighted_bce(output, target, weight, device):
     return loss
 
 
-def vol_proj_loss(proj_voxel, img_mask, weight, device):
+def vol_proj_loss(proj_imgs, gt_imgs, weight, device):
     """
     Computes the projection loss
-    :param proj_voxel: Predicted voxel projected into image space
-    :param img_mask: Target Image Silhouette
+    :param proj_imgs: Predicted voxel projected into image space
+    :param gt_imgs: Target Image Silhouette
     :param weight: Weight for projection loss
     :param device: cpu or cuda
     :return:
         MSE loss between the ground truth masks (object silhouettes)
         and the predicted masks
     """
-    proj_loss = mse(proj_voxel, img_mask, device)
-    proj_loss *= weight
-    return proj_loss
+    # batch_size = target.shape[0]
+    criterion = torch.nn.MSELoss(reduction="none").to(device)
+    loss = criterion(proj_imgs.float(), gt_imgs.float())
+    # proj_loss = mse(proj_imgs, gt_imgs, device)
+    loss *= weight
+    return loss
