@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-import perspective_projection as projection
+from perspective_projection import Projection
 
 
 class Net(nn.Module):
@@ -19,16 +19,21 @@ class Net(nn.Module):
         self.conv6 = nn.ConvTranspose3d(32, out_channels, kernel_size=3, stride=2, padding=1, output_padding=1)
 
 
-    def forward(self, x):
-        # Encoder Part : [3, 32, 32, 32] -> [128, 4, 4, 4]
+    def forward(self, x, index_map):
+        # Encoder Part : [1, 32, 32, 32] -> [128, 4, 4, 4]
         x = self.relu(self.conv1(x))
         x = self.relu(self.conv2(x))
         x = self.relu(self.conv3(x))
 
-        # Decoder Part : [128, 4, 4, 4] -> [3, 32, 32, 32]
+        # Decoder Part : [128, 4, 4, 4] -> [1, 32, 32, 32]
         x = self.relu(self.conv4(x))
         x = self.relu(self.conv5(x))
-        x = self.conv6(x)
+        x = self.relu(self.conv6(x))
+
+        # index_map : batch_size x num_views x (img_height * img_width)
+        batch_size = index_map.size(0)
+        proj_imgs = torch.stack([Projection.apply(x[i], index_map[i]) for i in range(batch_size)])
+        # this should give proj_imgs in the shape : batch_size x num_views x (img_height * img_width)
 
         return x
 

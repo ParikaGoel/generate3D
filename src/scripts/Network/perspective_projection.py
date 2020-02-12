@@ -39,8 +39,8 @@ def make_world_to_grid():
 class ProjectionHelper:
     def __init__(self):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.grid_to_world = torch.inverse(make_world_to_grid()).to(device)
-        self.intrinsic = make_intrinsic().to(device)
+        self.grid_to_world = torch.inverse(make_world_to_grid()).to(self.device)
+        self.intrinsic = make_intrinsic().to(self.device)
         self.depth_min = config.znear
         self.depth_max = config.zfar
         self.image_dims = [config.render_img_width, config.render_img_height]
@@ -197,11 +197,17 @@ class ProjectionHelper:
         return index_map
 
     def forward(self, inp_occ_grid, lin_index_map):
+        """
+        
+        :param inp_occ_grid: occupancy grid for which viewpoint mappings are given
+        :param lin_index_map: index mapping for every viewpoint ; shape - (N x (32*32*32))
+        :return: 
+        """
         inp_occ_grid = inp_occ_grid[0]  # removes the channel dimension
         flatten_occ = torch.flatten(inp_occ_grid, start_dim=0, end_dim=-1).to(self.device)
         flatten_occ = torch.cat([flatten_occ, torch.tensor([-1.0]).to(self.device)])  # Add -1 to the end for invalid value
 
-        proj_img = flatten_occ[lin_index_map]
+        proj_img = torch.stack([flatten_occ[view_index_map] for view_index_map in lin_index_map])
         mask = torch.eq(proj_img, -1)
         proj_img[mask] = 0
 
@@ -213,9 +219,17 @@ class ProjectionHelper:
         flatten_occ = torch.cat(
             [flatten_occ, torch.tensor([-1.0]).to(self.device)])  # Add -1 to the end for invalid value
 
-        flatten_occ[lin_index_map] = grad_output
-        flatten_occ = flatten_occ[:32768]
+        n_views = lin_index_map.size(0)
+        occs = []
+        for i in range(n_views):
+            new_occ = flatten_occ.clone()
+            new_occ[lin_index_map[i]] = grad_output[i]
+            occs.append(new_occ)
 
+        occs = torch.stack(occs)
+        occs = occs[:,:32768]
+        
+        occ_grid = torch.mean(occs, dim=0)
         occ_grid = torch.reshape(flatten_occ, (32,32,32)).unsqueeze(0)
         return occ_grid
 
@@ -231,7 +245,7 @@ class Projection(Function):
         flatten_occ = torch.cat(
             [flatten_occ, torch.tensor([-1.0]).to(self.device)])  # Add -1 to the end for invalid value
 
-        proj_img = flatten_occ[lin_index_map]
+        proj_img = torch.stack([flatten_occ[view_index_map] for view_index_map in lin_index_map])
         mask = torch.eq(proj_img, -1)
         proj_img[mask] = 0
 
@@ -244,26 +258,34 @@ class Projection(Function):
             [flatten_occ, torch.tensor([-1.0]).to(self.device)])  # Add -1 to the end for invalid value
 
         # ToDo(Parika) : Need to take the average of all the pixel values corresponding to same voxel
-        flatten_occ[lin_index_map] = grad_output
-        flatten_occ = flatten_occ[:32768]
+        n_views = lin_index_map.size(0)
+        occs = []
+        # ToDo(Parika): Better way to implement the for loop
+        for i in range(n_views):
+            new_occ = flatten_occ.clone()
+            new_occ[lin_index_map[i]] = grad_output[i]
+            occs.append(new_occ)
 
-        occ_grid = torch.reshape(flatten_occ, (32, 32, 32)).unsqueeze(0)  # returns occ grid in the shape C x D x H x W
+        occs = torch.stack(occs)
+        occs = occs[:, :32768]
+
+        occ_grid = torch.mean(occs, dim=0)
+        occ_grid = torch.reshape(flatten_occ, (32, 32, 32)).unsqueeze(0)
         return occ_grid
 
 
 if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    rainbow_file = "/media/sda2/shapenet/test/rainbow_frustrum_.txt"
-    gt_file = "/media/sda2/shapenet/test/fd013bea1e1ffb27c31c70b1ddc95e3f__test__.txt"
-    cam_file = "/media/sda2/shapenet/renderings/02747177/fd013bea1e1ffb27c31c70b1ddc95e3f/pose/pose0.json"
-    gt_img_file = "/media/sda2/shapenet/renderings/02747177/fd013bea1e1ffb27c31c70b1ddc95e3f/color/color0.png"
+    rainbow_file = "../../../Assets_remote/test/rainbow_frustrum_.txt"
+    gt_file = "../../../Assets_remote/test/fd013bea1e1ffb27c31c70b1ddc95e3f__test__.txt"
+    cam_file = "../../../Assets_remote/test/fd013bea1e1ffb27c31c70b1ddc95e3f/pose/pose16.json"
+    gt_img_file = "../../../Assets_remote/test/fd013bea1e1ffb27c31c70b1ddc95e3f/color/color00.png"
     rainbow_occ = loader.load_color_sample(rainbow_file).to(device)
     gt_occ = loader.load_sample(gt_file).to(device)
     gt_img = loader.load_img(gt_img_file).to(device)
-    world_to_camera = loader.get_cam_to_world(cam_file).to(device)
+    world_to_camera = loader.load_pose(cam_file).to(device)
+    world_to_camera = torch.reshape(world_to_camera, (4, 4))
     world_to_camera[:, 3] = torch.tensor([0.0, 0.0, -1.2, 0.0]).to(device)
-
-    gt_img = torch.flatten(gt_img)
 
     projection_helper = ProjectionHelper()
     # projection_helper.compute_color_projection(test_color_grid, world_to_camera)
@@ -273,5 +295,5 @@ if __name__ == '__main__':
     proj_loss = losses.vol_proj_loss(proj_img.unsqueeze(0).float(),
                                      gt_img.unsqueeze(0).float(), 1, device)
     print(proj_loss)
-    # projection_helper.show_projection(proj_img)
+    projection_helper.show_projection(proj_img)
 

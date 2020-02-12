@@ -1,6 +1,8 @@
 import sys
 
 sys.path.append('../.')
+import os
+import glob
 import json
 import torch
 import config
@@ -9,6 +11,21 @@ import JSONHelper
 import numpy as np
 
 
+def load_imgs(folder):
+    '''
+    :param folder: folder path containing rendered images
+    :return:
+        returns a tensor of shape [N x (height * width)]
+        each row in tensor contains flattened image tensor
+    '''
+    imgs = []
+    for filename in sorted(os.listdir(folder)):
+        img = load_img(os.path.join(folder, filename))
+        imgs.append(img)
+    imgs = torch.stack(imgs)
+    return imgs
+
+    
 def load_img(png_file):
     """
     Loads the image from the png file and preprocess it to get the image silhouette
@@ -22,19 +39,34 @@ def load_img(png_file):
     img[img < 255] = 1
     img[img == 255] = 0
     # img will contain the occupancy of the pixels now : 1 refers to object in the pixel
-    img = torch.from_numpy(img)
+    img = torch.flatten(torch.from_numpy(img))
     return img
 
 
-def get_cam_to_world(cam_file):
-    data = JSONHelper.read(cam_file)
-    # read the camera pose
+def load_poses(poses_folder):
+    '''
+        :param folder: folder path containing rendered poses
+        :return:
+            returns a tensor of shape [N x 16]
+            each row is for flattened pose tensor
+    '''
+    poses = []
+    for filename in sorted(os.listdir(poses_folder)):
+        pose = load_pose(os.path.join(poses_folder, filename))
+        poses.append(pose)
+    poses = torch.stack(poses)
+    return poses
+
+
+def load_pose(pose_file):
+    data = JSONHelper.read(pose_file)
+    # read the pose
     pose = np.empty(0)
     for val in data['pose']:
         pose = np.append(pose, val)
 
     pose = np.transpose(np.reshape(pose, (4, 4)))
-    pose = torch.from_numpy(pose).float()
+    pose = torch.flatten(torch.from_numpy(pose).float())
     return pose
 
 
@@ -131,15 +163,15 @@ class DatasetLoad(torch.utils.data.Dataset):
 
         input_occ_file = params["shapenet_raytraced"] + synset_id + "/" + model_id + ".txt"
         gt_occ_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "__0__.txt"
-        gt_img_file = params["shapenet_renderings"] + synset_id + "/" + model_id + "/color/color0.png"
-        cam_file = params["shapenet_renderings"] + synset_id + "/" + model_id + "/cam/cam0.json"
+        gt_imgs_folder = params["shapenet_renderings"] + synset_id + "/" + model_id + "/color"
+        poses_folder = params["shapenet_renderings"] + synset_id + "/" + model_id + "/pose"
 
         occ_grid = load_sample(input_occ_file)
         occ_gt = load_sample(gt_occ_file)
-        img_gt = load_img(gt_img_file)
-        cam_pose = get_cam_to_world(cam_file)
+        imgs_gt = load_imgs(gt_imgs_folder)
+        poses = load_poses(poses_folder)
 
-        return {'occ_grid': occ_grid, 'occ_gt': occ_gt, 'img_gt': img_gt, 'cam_pose': cam_pose}
+        return {'occ_grid': occ_grid, 'occ_gt': occ_gt, 'imgs_gt': imgs_gt, 'poses': poses}
 
 
 if __name__ == '__main__':
