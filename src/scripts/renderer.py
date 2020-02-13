@@ -99,21 +99,19 @@ def generate_images(obj_file, out_folder, num_renderings):
                                        znear=znear, zfar=zfar)
 
     cam_pose = np.eye(4)
-    cam_pose[:3, 3] = [0.0, 0.0, cam_depth]
+    cam_pose[:3, 3] = [0.0, -0.1, cam_depth]
 
     # pose -> gives the pose of the camera in the world system; camera to world transformation
     scene.add(camera, pose=cam_pose)
-
-    pyrender.Viewer(scene, show_world_axis=True)
 
     count = 0
     axis = 'y'
     deg = 0
     trans = 0
     while count < num_renderings:
-        color_file = os.path.join(color_img_folder, 'color%s.png' % count)
-        depth_file = os.path.join(depth_img_folder, 'depth%s.png' % count)
-        pose_file = os.path.join(pose_folder, 'pose%s.json' % count)
+        color_file = os.path.join(color_img_folder, 'color%02d.png' % count)
+        depth_file = os.path.join(depth_img_folder, 'depth%02d.png' % count)
+        pose_file = os.path.join(pose_folder, 'pose%02d.json' % count)
 
         rot_matrix = Rotation.from_euler(axis, deg, degrees=True)
         pose = np.eye(4)
@@ -123,13 +121,13 @@ def generate_images(obj_file, out_folder, num_renderings):
         for mesh in mesh_nodes:
             mesh.matrix = pose
 
-        # pyrender.Viewer(scene, show_world_axis=True)
+        # pyrender.Viewer(scene)
         export_pose_to_json(camera, pose, pose_file)
         #
         r = pyrender.OffscreenRenderer(render_img_width, render_img_height)
         color, depth = r.render(scene)
-        # # mask = depth != 0
-        # # color = mask[:, :, None] * color
+        # mask = depth != 0
+        # color = mask[:, :, None] * color
         save_img(color, depth, color_file, depth_file)
         # show(color, depth)
 
@@ -137,38 +135,6 @@ def generate_images(obj_file, out_folder, num_renderings):
         trans += 0.05
         count += 1
 
-
-# if __name__ == '__main__':
-#     num_renderings = 10
-#
-#     params = JSONHelper.read("./parameters.json")
-#
-#     failed_cases = {}
-#     failed_ids = []
-#     file = params["shapenet_renderings"] + "failed_cases.json"
-#
-#     for f in glob.glob(params["shapenet"] + "/**/*/models/model_normalized.obj"):
-#         catid_cad = f.split("/", 6)[4]
-#         id_cad = f.split("/", 6)[5]
-#
-#         if not catid_cad in failed_cases.keys():
-#             failed_cases[catid_cad] = []
-#
-#         print("catid: ", catid_cad, " , id: ", id_cad)
-#
-#         try:
-#             outdir = params["shapenet_renderings"] + "/" + catid_cad + "/" + id_cad
-#             pathlib.Path(outdir).mkdir(parents=True, exist_ok=True)
-#
-#             generate_images(f, outdir, num_renderings)
-#
-#             dir = params["shapenet"] + "/" + catid_cad + "/" + id_cad
-#             shutil.rmtree(dir)
-#         except:
-#             failed_cases[catid_cad].append(id_cad)
-#             pass
-#
-#         JSONHelper.write(file, failed_cases)
 
 if __name__ == '__main__':
     num_renderings = 24
@@ -179,10 +145,13 @@ if __name__ == '__main__':
     failed_ids = []
     file = "/media/sda2/shapenet/renderings/failed_cases.json"
 
+    # synset_id = "04554684"
+    # model_id = "1a53e51455e0812e44a7fc53aa1d411c"
     # synset_id = "02747177"
     # model_id = "fd013bea1e1ffb27c31c70b1ddc95e3f"
+    # model_id = "2ee841537921cf87ad5067eac75a07f7"
 
-    # obj_file = params["shapenet"] + "/" + synset_id + "/" + model_id + "/models/model_normalized.obj"
+    # obj_file = "/media/sda2/shapenet/shapenet-data/" + synset_id + "/" + model_id + "/models/model_normalized.obj"
     # # outdir = params["shapenet_renderings"] + "/" + synset_id + "/" + model_id
     # outdir = "/media/sda2/shapenet/renderings" + "/" + synset_id + "/" + model_id
     # pathlib.Path(outdir).mkdir(parents=True, exist_ok=True)
@@ -211,6 +180,6 @@ if __name__ == '__main__':
             failed_ids.append(model_id)
             pass
 
-    failed_cases[model_id] = failed_ids
+    failed_cases[synset_id] = failed_ids
     JSONHelper.write(file, failed_cases)
 

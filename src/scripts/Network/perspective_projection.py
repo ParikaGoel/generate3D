@@ -250,13 +250,14 @@ class ProjectionHelper:
 class Projection(Function):
 
     @staticmethod
-    def forward(ctx, occ_grid, lin_index_map):
+    def forward(ctx, lin_index_map, occ_grid):
         batch_size = occ_grid.size(0)
-        occ_grid = torch.flatten(occ_grid, start_dim=1, end_dim=-1)
-        ctx.save_for_backward(lin_index_map, occ_grid)
+        occ_grid = torch.flatten(occ_grid.clone(), start_dim=1, end_dim=-1)
+        ctx.save_for_backward(occ_grid, lin_index_map)
         invalid_col = occ_grid.new_empty((batch_size, 1)).fill_(-1.0)
         occ_grid = torch.cat([occ_grid, invalid_col], dim=1)  # Add -1 to the end for invalid value
 
+        lin_index_map = lin_index_map.long()
         proj_imgs = torch.stack([occ_grid[i][lin_index_map[i]] for i in range(batch_size)])
         mask = torch.eq(proj_imgs, -1)
         proj_imgs[mask] = 0
@@ -265,14 +266,14 @@ class Projection(Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        lin_index_map, flatten_occ = ctx.saved_variables
+        
+        flatten_occ, lin_index_map = ctx.saved_variables
         batch_size = flatten_occ.size(0)
         occ_size = flatten_occ.size(1)
-        # invalid_col = flatten_occ.new_empty((batch_size, 1)).fill_(-1.0)
-        # flatten_occ = torch.cat([flatten_occ, invalid_col], dim=1)  # Add -1 to the end for invalid value
 
         # ToDo(Parika) : Need to take the average of all the pixel values corresponding to same voxel
 
+        lin_index_map = lin_index_map.long()
         occ_grids = []
         for b in range(batch_size):
             occ = flatten_occ[b]
@@ -283,9 +284,8 @@ class Projection(Function):
             index_map[mask] = -1
             index_map = torch.flatten(index_map)
 
-            grad = grad_output[b]
-            tmp = torch.cat([occ.repeat(n_views), torch.tensor([-1])]).float()
-            tmp[index_map] = grad
+            tmp = torch.cat([occ.repeat(n_views), torch.tensor([-1.0]).cuda()]).float()
+            tmp[index_map] = torch.flatten(grad_output[b])
             tmp = torch.reshape(torch.mean(tmp[:-1].reshape((-1, occ_size)), dim=0), (1, 32, 32, 32))
             occ_grids.append(tmp)
 
@@ -296,22 +296,17 @@ class Projection(Function):
 if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     rainbow_file = "../../../Assets_remote/test/rainbow_frustrum_.txt"
-    gt_file = "../../../Assets_remote/test/fd013bea1e1ffb27c31c70b1ddc95e3f__test__.txt"
-    cam_file = "../../../Assets_remote/test/fd013bea1e1ffb27c31c70b1ddc95e3f/pose/pose16.json"
-    gt_img_file = "../../../Assets_remote/test/fd013bea1e1ffb27c31c70b1ddc95e3f/color/color00.png"
-    rainbow_occ = loader.load_color_sample(rainbow_file).to(device)
+    folder = "/media/sda2/shapenet/test/fd013bea1e1ffb27c31c70b1ddc95e3f/pose/"
+    gt_file = "/media/sda2/shapenet/test/fd013bea1e1ffb27c31c70b1ddc95e3f__test__.txt"
     gt_occ = loader.load_sample(gt_file).to(device)
-    gt_img = loader.load_img(gt_img_file).to(device)
-    world_to_camera = loader.load_pose(cam_file).to(device)
-    world_to_camera = torch.reshape(world_to_camera, (4, 4))
-    world_to_camera[:, 3] = torch.tensor([0.0, 0.0, -1.2, 0.0]).to(device)
+    poses = loader.load_poses(folder).to(device)
 
-    projection_helper = ProjectionHelper()
-    # projection_helper.compute_color_projection(test_color_grid, world_to_camera)
-    lin_index_map = projection_helper.compute_projection(gt_occ, world_to_camera)
-    proj_img = projection_helper.forward(gt_occ, lin_index_map)
-    occ_grid = projection_helper.backward(proj_img, lin_index_map, gt_occ)
-    proj_loss = losses.vol_proj_loss(proj_img.unsqueeze(0).float(),
-                                     gt_img.unsqueeze(0).float(), 1, device)
-    print(proj_loss)
-    projection_helper.show_projection(proj_img)
+    projection_helper = projection.ProjectionHelper()
+    lin_index_map = torch.stack([projection_helper.compute_projection(gt_occ, pose) for pose in poses])
+    proj_imgs = projection_helper.forward(gt_occ.unsqueeze(0), lin_index_map.unsqueeze(0))
+    proj_imgs = proj_imgs[0]
+
+    for proj_img in proj_imgs:
+        projection_helper.show_projection(proj_img)
+
+    # occ_grid = projection_helper.backward(proj_imgs, lin_index_map, gt_occ)

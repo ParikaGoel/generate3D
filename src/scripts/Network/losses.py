@@ -78,9 +78,6 @@ def vol_proj_loss(proj_imgs, gt_imgs, weight, device):
         MSE loss between the ground truth masks (object silhouettes)
         and the predicted masks
     """
-    # batch_size = target.shape[0]
-    criterion = torch.nn.MSELoss(reduction="none").to(device)
-    loss = criterion(proj_imgs.float(), gt_imgs.float())
-    # proj_loss = mse(proj_imgs, gt_imgs, device)
-    loss *= weight
-    return loss
+    proj_loss = mse(proj_imgs, gt_imgs, device)
+    proj_loss *= weight
+    return proj_loss
