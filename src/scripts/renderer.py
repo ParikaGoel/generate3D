@@ -158,14 +158,14 @@ if __name__ == '__main__':
 
     # generate_images(obj_file, outdir, num_renderings)
 
-    for f in glob.glob(params["shapenet"] + "/**/*/models/model_normalized.obj"):
+    for f in glob.glob("/media/sda2/shapenet/shapenet-data/" + "/**/*/models/model_normalized.obj"):
     # for f in glob.glob(params["shapenet"] + synset_id + "/*/models/model_normalized.obj"):
         synset_id = f.split("/", 8)[5]
         model_id = f.split("/", 8)[6]
         print("synset_id: ", synset_id, " , model_id: ", model_id)
         try :
-            obj_file = params["shapenet"] + "/" + synset_id + "/" + model_id + "/models/model_normalized.obj"
-            outdir = "/media/sda2/shapenet/renderings" + "/" + synset_id + "/" + model_id
+            obj_file = "/media/sda2/shapenet/shapenet-data/" + synset_id + "/" + model_id + "/models/model_normalized.obj"
+            outdir = "/media/sda2/shapenet/renderings/" + synset_id + "/" + model_id
 
             if os.path.exists(outdir):
                 print(synset_id, " : ", model_id, " already rendered. Skipping......")

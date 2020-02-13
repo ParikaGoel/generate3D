@@ -13,7 +13,7 @@ color_bg = [1., 1., 1.]
 vox_dim = 32
 
 # train network
-num_epochs = 50
+num_epochs = 10
 batch_size = 5
 lr = 0.001
 momentum = 0.9

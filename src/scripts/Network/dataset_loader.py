@@ -67,7 +67,8 @@ def load_pose(pose_file):
 
     pose = np.transpose(np.reshape(pose, (4, 4)))
     pose = torch.from_numpy(pose).float()
-    pose[2, 3] = -1.2
+    pose[2, 3] = -config.cam_depth
+    pose[1, 3] = -0.1
     return pose
 
 

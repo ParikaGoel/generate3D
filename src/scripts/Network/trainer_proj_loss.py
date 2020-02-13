@@ -59,8 +59,14 @@ class Trainer:
 
             # ===================forward=====================
             projection_helper = ProjectionHelper()
-            index_map = projection_helper.project_batch_n_views(occ_input, poses).float()
+            index_map = projection_helper.project_batch_n_views(occ_input, poses)
             occ, proj_imgs = self.model(occ_input, index_map)
+
+            # for proj_img in proj_imgs[0]:
+            #     projection_helper.show_projection(proj_img)
+            #
+            # for img_gt in imgs_gt[0]:
+            #     projection_helper.show_projection(img_gt)
             loss = losses.vol_proj_loss(proj_imgs, imgs_gt, 1, self.device)
 
             # ===================backward + optimize====================
@@ -83,12 +89,12 @@ class Trainer:
             for idx, sample in enumerate(self.dataloader_val):
                 occ_input = sample['occ_grid'].to(self.device)
                 occ_gt = sample['occ_gt'].to(self.device)
-                img_gt = sample['img_gt'].to(self.device)
-                transform = sample['transform']  # transform is numpy array
+                imgs_gt = sample['imgs_gt'].to(self.device)
+                poses = sample['poses'].to(self.device)
 
                 # ===================forward=====================
                 projection_helper = ProjectionHelper()
-                index_map = projection_helper.project_batch_n_views(occ_input, poses).float()
+                index_map = projection_helper.project_batch_n_views(occ_input, poses)
                 occ, proj_imgs = self.model(occ_input, index_map)
                 loss = losses.vol_proj_loss(proj_imgs, imgs_gt, 1, self.device)
 

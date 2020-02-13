@@ -31,7 +31,7 @@ class Net(nn.Module):
         x = self.relu(self.conv6(x))
 
         # index_map : batch_size x num_views x (img_height * img_width)
-        proj_imgs = Projection.apply(index_map, x)
+        proj_imgs = Projection.apply(x, index_map)
         # this should give proj_imgs in the shape : batch_size x num_views x (img_height * img_width)
 
         return x, proj_imgs

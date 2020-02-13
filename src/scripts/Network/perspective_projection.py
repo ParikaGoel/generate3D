@@ -187,7 +187,7 @@ class ProjectionHelper:
         pmax = torch.max(p, dim=0).values
 
         # Note : to be used when camera is seeing in the -ve z-direction
-        index_map = torch.empty((self.image_dims[1], self.image_dims[0]), dtype=torch.long).fill_(-1)
+        index_map = torch.empty((self.image_dims[1], self.image_dims[0]), dtype=torch.long).fill_(-1).to(self.device)
 
         for i in range(lin_ind_volume.size(0)):
             index_map[pmin[1, i]:pmax[1, i], pmin[0, i]:pmax[0, i]] = torch.clamp(
@@ -211,14 +211,8 @@ class ProjectionHelper:
         return batch_index_map
 
     def forward(self, occ_grid, lin_index_map):
-        """
-        
-        :param inp_occ_grid: occupancy grid for which viewpoint mappings are given
-        :param lin_index_map: index mapping for every viewpoint ; shape - (N x (32*32*32))
-        :return: 
-        """
         batch_size = occ_grid.size(0)
-        occ_grid = torch.flatten(occ_grid, start_dim=1, end_dim=-1)
+        occ_grid = torch.flatten(occ_grid.clone(), start_dim=1, end_dim=-1)
         invalid_col = occ_grid.new_empty((batch_size, 1)).fill_(-1.0)
         occ_grid = torch.cat([occ_grid, invalid_col], dim=1)  # Add -1 to the end for invalid value
 
@@ -228,36 +222,46 @@ class ProjectionHelper:
 
         return proj_imgs
 
-    def backward(self, grad_output, lin_index_map, inp_occ_grid):
-        inp_occ_grid = inp_occ_grid[0]  # removes the channel dimension
-        flatten_occ = torch.flatten(inp_occ_grid, start_dim=0, end_dim=-1).to(self.device)
-        flatten_occ = torch.cat(
-            [flatten_occ, torch.tensor([-1.0]).to(self.device)])  # Add -1 to the end for invalid value
+    def backward(self, grad, flatten_occ, index_map):
+        flatten_occ = torch.flatten(flatten_occ, start_dim=1, end_dim=-1)
+        batch_size = flatten_occ.size(0)
+        grid_size = flatten_occ.size(1)
+        n_views = index_map.size(1)
 
-        n_views = lin_index_map.size(0)
-        occs = []
-        for i in range(n_views):
-            new_occ = flatten_occ.clone()
-            new_occ[lin_index_map[i]] = grad_output[i]
-            occs.append(new_occ)
+        output = flatten_occ.new_empty(size=[batch_size, grid_size * n_views + 1]).fill_(0)
+        index_map_mask = torch.eq(index_map, -1)
+        index_map = torch.stack(
+            [torch.stack([torch.add(index_map[b, i, :], i * grid_size) for i in range(index_map[b].size(0))])
+             for b in range(batch_size)])
+        index_map[index_map_mask] = output.size(1) - 1
+        index_map = torch.flatten(index_map, start_dim=1, end_dim=-1)
+        indices = torch.stack([torch.unique(index_map[b]) for b in range(batch_size)])
+        indices_count = torch.stack([torch.unique(index_map[b], return_counts=True)[1] for b in range(batch_size)])
+        grad = torch.flatten(grad, start_dim=1, end_dim=-1)
+        output = torch.stack([output[b].index_add_(0, index_map[b], grad[b]) for b in range(batch_size)])
+        for b in range(batch_size):
+            output[b, indices[b]] = output[b, indices[b]] / indices_count[b]
+        output = output[:, :-1].reshape((batch_size, n_views, -1))
+        mask = torch.eq(output, 0.0)
+        flatten_occ = torch.stack([flatten_occ[b].repeat(n_views, 1) for b in range(batch_size)])
+        output[mask] = flatten_occ[mask]
+        output = torch.stack([torch.reshape(torch.mean(output[b], dim=0), (1, 32, 32, 32))
+                              for b in range(batch_size)])
 
-        occs = torch.stack(occs)[:, :32768]
-        occ_grid = torch.reshape(torch.mean(occs, dim=0), (32, 32, 32)).unsqueeze(0)
-        return occ_grid
+        return output
 
 
 # Inherit from Function
 class Projection(Function):
 
     @staticmethod
-    def forward(ctx, lin_index_map, occ_grid):
+    def forward(ctx, occ_grid, lin_index_map):
         batch_size = occ_grid.size(0)
         occ_grid = torch.flatten(occ_grid.clone(), start_dim=1, end_dim=-1)
         ctx.save_for_backward(occ_grid, lin_index_map)
         invalid_col = occ_grid.new_empty((batch_size, 1)).fill_(-1.0)
         occ_grid = torch.cat([occ_grid, invalid_col], dim=1)  # Add -1 to the end for invalid value
 
-        lin_index_map = lin_index_map.long()
         proj_imgs = torch.stack([occ_grid[i][lin_index_map[i]] for i in range(batch_size)])
         mask = torch.eq(proj_imgs, -1)
         proj_imgs[mask] = 0
@@ -265,48 +269,79 @@ class Projection(Function):
         return proj_imgs
 
     @staticmethod
-    def backward(ctx, grad_output):
-        
-        flatten_occ, lin_index_map = ctx.saved_variables
+    def backward(ctx, grad):
+        flatten_occ, index_map = ctx.saved_variables
         batch_size = flatten_occ.size(0)
-        occ_size = flatten_occ.size(1)
+        grid_size = flatten_occ.size(1)
+        n_views = index_map.size(1)
 
-        # ToDo(Parika) : Need to take the average of all the pixel values corresponding to same voxel
-
-        lin_index_map = lin_index_map.long()
-        occ_grids = []
+        output = flatten_occ.new_empty(size=[batch_size, grid_size * n_views + 1]).fill_(0)
+        index_map_mask = torch.eq(index_map, -1)
+        index_map = torch.stack(
+            [torch.stack([torch.add(index_map[b, i, :], i * grid_size) for i in range(index_map[b].size(0))])
+             for b in range(batch_size)])
+        index_map[index_map_mask] = output.size(1) - 1
+        index_map = torch.flatten(index_map, start_dim=1, end_dim=-1)
+        # indices = torch.stack([torch.unique(index_map[b]) for b in range(batch_size)])
+        # indices_count = torch.stack([torch.unique(index_map[b], return_counts=True)[1] for b in range(batch_size)])
+        grad = torch.flatten(grad, start_dim=1, end_dim=-1)
+        output = torch.stack([output[b].index_add_(0, index_map[b], grad[b]) for b in range(batch_size)])
         for b in range(batch_size):
-            occ = flatten_occ[b]
-            index_map = lin_index_map[b]
-            n_views = index_map.size(0)
-            mask = torch.eq(index_map, -1)
-            index_map = torch.stack([torch.add(index_map[i, :], i * occ_size) for i in range(index_map.size(0))])
-            index_map[mask] = -1
-            index_map = torch.flatten(index_map)
+            indices, indices_count = torch.unique(index_map[b], return_counts=True)
+            output[b, indices] = output[b, indices] / indices_count
+        output = output[:, :-1].reshape((batch_size, n_views, -1))
+        mask = torch.eq(output, 0.0)
+        flatten_occ = torch.stack([flatten_occ[b].repeat(n_views, 1) for b in range(batch_size)])
+        output[mask] = flatten_occ[mask]
+        output = torch.stack([torch.reshape(torch.mean(output[b], dim=0), (1, 32, 32, 32))
+                              for b in range(batch_size)])
 
-            tmp = torch.cat([occ.repeat(n_views), torch.tensor([-1.0]).cuda()]).float()
-            tmp[index_map] = torch.flatten(grad_output[b])
-            tmp = torch.reshape(torch.mean(tmp[:-1].reshape((-1, occ_size)), dim=0), (1, 32, 32, 32))
-            occ_grids.append(tmp)
-
-        batch_occ = torch.stack(occ_grids)
-        return batch_occ, None
+        return output, None
 
 
-if __name__ == '__main__':
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    rainbow_file = "../../../Assets_remote/test/rainbow_frustrum_.txt"
-    folder = "/media/sda2/shapenet/test/fd013bea1e1ffb27c31c70b1ddc95e3f/pose/"
-    gt_file = "/media/sda2/shapenet/test/fd013bea1e1ffb27c31c70b1ddc95e3f__test__.txt"
-    gt_occ = loader.load_sample(gt_file).to(device)
-    poses = loader.load_poses(folder).to(device)
+    # @staticmethod
+    # def backward(ctx, grad_output):
+    #
+    #     flatten_occ, lin_index_map = ctx.saved_variables
+    #     batch_size = flatten_occ.size(0)
+    #     occ_size = flatten_occ.size(1)
+    #
+    #     # ToDo(Parika) : Need to take the average of all the pixel values corresponding to same voxel
+    #
+    #     lin_index_map = lin_index_map.long()
+    #     occ_grids = []
+    #     for b in range(batch_size):
+    #         occ = flatten_occ[b]
+    #         index_map = lin_index_map[b]
+    #         n_views = index_map.size(0)
+    #         mask = torch.eq(index_map, -1)
+    #         index_map = torch.stack([torch.add(index_map[i, :], i * occ_size) for i in range(index_map.size(0))])
+    #         index_map[mask] = -1
+    #         index_map = torch.flatten(index_map)
+    #
+    #         tmp = torch.cat([occ.repeat(n_views), torch.tensor([-1.0]).cuda()]).float()
+    #         tmp[index_map] = torch.flatten(grad_output[b])
+    #         tmp = torch.reshape(torch.mean(tmp[:-1].reshape((-1, occ_size)), dim=0), (1, 32, 32, 32))
+    #         occ_grids.append(tmp)
+    #
+    #     batch_occ = torch.stack(occ_grids)
+    #     return batch_occ, None
 
-    projection_helper = projection.ProjectionHelper()
-    lin_index_map = torch.stack([projection_helper.compute_projection(gt_occ, pose) for pose in poses])
-    proj_imgs = projection_helper.forward(gt_occ.unsqueeze(0), lin_index_map.unsqueeze(0))
-    proj_imgs = proj_imgs[0]
 
-    for proj_img in proj_imgs:
-        projection_helper.show_projection(proj_img)
-
-    # occ_grid = projection_helper.backward(proj_imgs, lin_index_map, gt_occ)
+# if __name__ == '__main__':
+#     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#     rainbow_file = "../../../Assets_remote/test/rainbow_frustrum_.txt"
+#     folder = "/media/sda2/shapenet/test/fd013bea1e1ffb27c31c70b1ddc95e3f/pose/"
+#     gt_file = "/media/sda2/shapenet/test/fd013bea1e1ffb27c31c70b1ddc95e3f__test__.txt"
+#     gt_occ = loader.load_sample(gt_file).to(device).unsqueeze(0)
+#     poses = loader.load_poses(folder).to(device).unsqueeze(0)
+#
+#     projection_helper = ProjectionHelper()
+#     index_maps = projection_helper.project_batch_n_views(gt_occ, poses)
+#     proj_imgs = projection_helper.forward(gt_occ, index_maps)
+#     # proj_imgs = proj_imgs[0]
+#
+#     # for proj_img in proj_imgs:
+#     #     projection_helper.show_projection(proj_img)
+#
+#     occ_grid = projection_helper.backward(proj_imgs, gt_occ, index_maps)
