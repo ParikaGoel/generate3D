@@ -44,7 +44,7 @@ def bce(output, target, device):
     batch_size = target.shape[0]
     output = torch.nn.Sigmoid()(output)
     criterion = torch.nn.BCELoss(reduction="none").to(device)
-    loss = criterion(output, target)
+    loss = criterion(output.float(), target.float())
     loss = torch.stack([torch.mean(loss[i]) for i in range(batch_size)])
 
     loss = torch.mean(loss)
@@ -67,17 +67,51 @@ def weighted_bce(output, target, weight, device):
     return loss
 
 
-def vol_proj_loss(proj_imgs, gt_imgs, weight, device):
+def proj_loss2(output, target, device):
     """
     Computes the projection loss
-    :param proj_imgs: Predicted voxel projected into image space
-    :param gt_imgs: Target Image Silhouette
+    :param output: Predicted voxel projected into image space ; shape : (N, n_views, (img_w * img_h))
+    :param target: Target Image Silhouette
     :param weight: Weight for projection loss
     :param device: cpu or cuda
     :return:
         MSE loss between the ground truth masks (object silhouettes)
         and the predicted masks
     """
-    proj_loss = mse(proj_imgs, gt_imgs, device)
-    proj_loss *= weight
-    return proj_loss
+    batch_size = target.shape[0]
+    n_views = target.shape[1]
+    # output = torch.nn.Sigmoid()(output)
+    # loss = bce_loss(output, target)
+    criterion = torch.nn.MSELoss(reduction="none").to(device)
+    loss = criterion(output.float(), target.float())
+    # loss = torch.stack([torch.mean(torch.stack([torch.sum(loss[b,v]) for v in range(n_views)]))
+    #                     for b in range(batch_size)])
+    #
+    # loss = torch.mean(loss)
+
+    return loss
+
+
+def proj_loss(output, target, device):
+    """
+    Computes the projection loss
+    :param output: Predicted voxel projected into image space ; shape : (N, n_views, (img_w * img_h))
+    :param target: Target Image Silhouette
+    :param weight: Weight for projection loss
+    :param device: cpu or cuda
+    :return:
+        MSE loss between the ground truth masks (object silhouettes)
+        and the predicted masks
+    """
+    batch_size = target.shape[0]
+    n_views = target.shape[1]
+    # output = torch.nn.Sigmoid()(output)
+    # loss = bce_loss(output, target)
+    criterion = torch.nn.MSELoss(reduction="none").to(device)
+    loss = criterion(output.float(), target.float())
+    loss = torch.stack([torch.mean(torch.stack([torch.sum(loss[b,v]) for v in range(n_views)]))
+                        for b in range(batch_size)])
+
+    loss = torch.mean(loss)
+
+    return loss

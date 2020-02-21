@@ -116,6 +116,9 @@ class Trainer:
             train_writer.add_scalar("loss", train_loss, epoch + 1)
             val_writer.add_scalar("loss", val_loss, epoch + 1)
 
+            # Save the trained model
+            torch.save(self.model.state_dict(), params["network_output"] + "saved_models/" + config.model_name + "_%02d.pth"%epoch)
+
         print("Finished training")
         train_writer.close()
         val_writer.close()

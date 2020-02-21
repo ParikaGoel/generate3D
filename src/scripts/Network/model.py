@@ -28,7 +28,7 @@ class Net(nn.Module):
         # Decoder Part : [128, 4, 4, 4] -> [1, 32, 32, 32]
         x = self.relu(self.conv4(x))
         x = self.relu(self.conv5(x))
-        x = self.relu(self.conv6(x))
+        x = self.conv6(x)
 
         return x
 
