@@ -73,6 +73,21 @@ def show(color_img, depth_img):
     plt.close(fig)
 
 
+def test_pose(obj_file):
+    scene = create_scene(obj_file)
+
+    camera = pyrender.IntrinsicsCamera(fx=focal, fy=focal,
+                                       cx=render_img_width / 2,
+                                       cy=render_img_height / 2,
+                                       znear=znear, zfar=zfar)
+
+    cam_pose = np.eye(4)
+    cam_pose[:3, 3] = [0.0, -0.1, cam_depth]
+
+    # pose -> gives the pose of the camera in the world system; camera to world transformation
+    scene.add(camera, pose=cam_pose)
+    pyrender.Viewer(scene)
+
 def generate_images(obj_file, out_folder, num_renderings):
     # create folders to save renderings
     color_img_folder = 'color'
@@ -103,6 +118,8 @@ def generate_images(obj_file, out_folder, num_renderings):
 
     # pose -> gives the pose of the camera in the world system; camera to world transformation
     scene.add(camera, pose=cam_pose)
+
+    pyrender.Viewer(scene)
 
     count = 0
     axis = 'y'
@@ -151,35 +168,36 @@ if __name__ == '__main__':
     # model_id = "fd013bea1e1ffb27c31c70b1ddc95e3f"
     # model_id = "2ee841537921cf87ad5067eac75a07f7"
 
-    # obj_file = "/media/sda2/shapenet/shapenet-data/" + synset_id + "/" + model_id + "/models/model_normalized.obj"
-    # # outdir = params["shapenet_renderings"] + "/" + synset_id + "/" + model_id
-    # outdir = "/media/sda2/shapenet/renderings" + "/" + synset_id + "/" + model_id
+    obj_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-data/02747177/501154f25599ee80cb2a965e75be701c/models/model_normalized.obj"
+    # outdir = params["shapenet_renderings"] + "/" + synset_id + "/" + model_id
+    # outdir = "/home/parika/WorkingDir/complete3D/Assets/"
     # pathlib.Path(outdir).mkdir(parents=True, exist_ok=True)
 
     # generate_images(obj_file, outdir, num_renderings)
+    test_pose(obj_file)
 
-    for f in glob.glob("/media/sda2/shapenet/shapenet-data/" + "/**/*/models/model_normalized.obj"):
-    # for f in glob.glob(params["shapenet"] + synset_id + "/*/models/model_normalized.obj"):
-        synset_id = f.split("/", 8)[5]
-        model_id = f.split("/", 8)[6]
-        print("synset_id: ", synset_id, " , model_id: ", model_id)
-        try :
-            obj_file = "/media/sda2/shapenet/shapenet-data/" + synset_id + "/" + model_id + "/models/model_normalized.obj"
-            outdir = "/media/sda2/shapenet/renderings/" + synset_id + "/" + model_id
-
-            if os.path.exists(outdir):
-                print(synset_id, " : ", model_id, " already rendered. Skipping......")
-                continue
-
-            pathlib.Path(outdir).mkdir(parents=True, exist_ok=True)
-
-            generate_images(obj_file, outdir, num_renderings)
-
-        except:
-            print("in exception block\n")
-            failed_ids.append(model_id)
-            pass
-
-    failed_cases[synset_id] = failed_ids
-    JSONHelper.write(file, failed_cases)
+    # for f in glob.glob("/media/sda2/shapenet/shapenet-data/" + "/**/*/models/model_normalized.obj"):
+    # # for f in glob.glob(params["shapenet"] + synset_id + "/*/models/model_normalized.obj"):
+    #     synset_id = f.split("/", 8)[5]
+    #     model_id = f.split("/", 8)[6]
+    #     print("synset_id: ", synset_id, " , model_id: ", model_id)
+    #     try :
+    #         obj_file = "/media/sda2/shapenet/shapenet-data/" + synset_id + "/" + model_id + "/models/model_normalized.obj"
+    #         outdir = "/media/sda2/shapenet/renderings/" + synset_id + "/" + model_id
+    #
+    #         if os.path.exists(outdir):
+    #             print(synset_id, " : ", model_id, " already rendered. Skipping......")
+    #             continue
+    #
+    #         pathlib.Path(outdir).mkdir(parents=True, exist_ok=True)
+    #
+    #         generate_images(obj_file, outdir, num_renderings)
+    #
+    #     except:
+    #         print("in exception block\n")
+    #         failed_ids.append(model_id)
+    #         pass
+    #
+    # failed_cases[synset_id] = failed_ids
+    # JSONHelper.write(file, failed_cases)
 

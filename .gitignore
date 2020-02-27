@@ -12,6 +12,7 @@ tmp
 bin
 lib
 __*
+*.txt
 *.vox
 *.vox2
 *.dat

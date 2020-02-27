@@ -149,11 +149,8 @@ from PIL import Image
 
 
 if __name__ == '__main__':
-    data = np.random.randint(5, size=(2, 4))
-    data1 = np.random.randint(5, size=(2, 4))
-    data = np.concatenate((data, data1))
-    print(data.shape)
-    # grad = torch.from_numpy(np.loadtxt('grad.txt')).float()
+    grad = torch.from_numpy(np.loadtxt('grad.txt')).float()
+    print(grad.shape)
     # mask = torch.gt(grad, 1e-20)
     # proj_img = torch.empty((512 * 512), dtype=torch.uint8).fill_(1)
     # proj_img[mask] = 0

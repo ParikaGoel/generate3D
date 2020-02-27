@@ -79,25 +79,21 @@ class Trainer:
             imgs_gt = sample['imgs_gt'].to(self.device)
             poses = sample['poses'].to(self.device)
 
-            poses = poses[:,4,:,:].unsqueeze(0)
-            imgs_gt = imgs_gt[:,4,:].unsqueeze(0)
+            poses = poses[:, 0, :, :].unsqueeze(0)
+            imgs_gt = imgs_gt[:, 0, :].unsqueeze(0)
 
             # zero the parameter gradients
             self.optimizer.zero_grad()
 
             # ===================forward=====================
             projection_helper = ProjectionHelper()
-            # index_map = projection_helper.project_batch_n_views(occ_input, poses)
-            # occ_gt.requires_grad = True
             occ, proj_imgs = self.model(occ_input, poses)
 
             for img_idx, proj_img in enumerate(proj_imgs[0]):
                 projection_helper.save_projection(os.path.join(proj_img_out,"img_%02d.png" % img_idx), proj_img)
-                # projection_helper.show_projection(proj_img)
 
             for img_idx, img_gt in enumerate(imgs_gt[0]):
                 projection_helper.save_projection(os.path.join(gt_img_out, "img_%02d.png" % img_idx), img_gt, True)
-                # projection_helper.show_projection(img_gt, True)
 
             loss = losses.proj_loss(proj_imgs, imgs_gt, self.device)
 
@@ -140,7 +136,7 @@ class Trainer:
 
     def start(self, train_writer, val_writer):
         print("Start training")
-        for epoch in range(100):
+        for epoch in range(60):
             train_loss = self.train(epoch)
             # val_loss = self.validate(epoch)
             # print("Train loss: %.3f" % train_loss)
