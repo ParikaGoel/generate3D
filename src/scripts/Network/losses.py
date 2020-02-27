@@ -67,31 +67,6 @@ def weighted_bce(output, target, weight, device):
     return loss
 
 
-def proj_loss2(output, target, device):
-    """
-    Computes the projection loss
-    :param output: Predicted voxel projected into image space ; shape : (N, n_views, (img_w * img_h))
-    :param target: Target Image Silhouette
-    :param weight: Weight for projection loss
-    :param device: cpu or cuda
-    :return:
-        MSE loss between the ground truth masks (object silhouettes)
-        and the predicted masks
-    """
-    batch_size = target.shape[0]
-    n_views = target.shape[1]
-    # output = torch.nn.Sigmoid()(output)
-    # loss = bce_loss(output, target)
-    criterion = torch.nn.MSELoss(reduction="none").to(device)
-    loss = criterion(output.float(), target.float())
-    # loss = torch.stack([torch.mean(torch.stack([torch.sum(loss[b,v]) for v in range(n_views)]))
-    #                     for b in range(batch_size)])
-    #
-    # loss = torch.mean(loss)
-
-    return loss
-
-
 def proj_loss(output, target, device):
     """
     Computes the projection loss
@@ -105,11 +80,10 @@ def proj_loss(output, target, device):
     """
     batch_size = target.shape[0]
     n_views = target.shape[1]
-    # output = torch.nn.Sigmoid()(output)
-    # loss = bce_loss(output, target)
-    criterion = torch.nn.MSELoss(reduction="none").to(device)
+    output = torch.nn.Sigmoid()(output)
+    criterion = torch.nn.BCELoss(reduction="none").to(device)
     loss = criterion(output.float(), target.float())
-    loss = torch.stack([torch.mean(torch.stack([torch.sum(loss[b,v]) for v in range(n_views)]))
+    loss = torch.stack([torch.mean(torch.stack([torch.mean(loss[b,v]) for v in range(n_views)]))
                         for b in range(batch_size)])
 
     loss = torch.mean(loss)

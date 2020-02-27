@@ -5,6 +5,7 @@ import os
 import torch
 import config
 import losses
+import voxel_grid
 import numpy as np
 from PIL import Image
 import dataset_loader as loader
@@ -151,6 +152,45 @@ class ProjectionHelper:
         img = Image.fromarray(img_np, 'L')
         img.show()
 
+    def save_gradient(self, file, grad):
+        np.savetxt("grad.txt", grad.cpu().numpy())
+        mask_pos = torch.gt(grad, 1e-10)
+        mask_neg = torch.lt(grad, -1e-10)
+        grad_vis = torch.empty((512 * 512), dtype=torch.uint8).fill_(1)
+        grad_vis[mask_pos] = 0
+        grad_vis[mask_neg] = 150
+        grad_vis = torch.reshape(grad_vis, (512, 512))
+
+        grad_vis = grad_vis.cpu().numpy().astype(np.uint8)
+        grad_vis[grad_vis == 1] = 255
+        vis = Image.fromarray(grad_vis, 'L')
+        vis.save(file)
+
+    def save_gradient_n_views(self, folder, grads):
+        n_views = grads.size(0)
+
+        for v in range(n_views):
+            file = os.path.join(folder, "img_grad%02d.png" % v)
+            self.save_gradient(file, grads[v])
+
+    def save_gradient_occ(self, folder, grad_occ):
+        file = os.path.join(folder, "occ_grad.txt")
+        grads = grad_occ[0].cpu().numpy()
+        positions = np.where(grads > 1e-10)
+        pos_neg = np.where(grads < -1e-10)
+        with open(file, "w") as f:
+            for i, j, k in zip(*positions):
+                data = np.column_stack((i, j, k, 0, 0, 0))
+                np.savetxt(f, data, fmt='%d %d %d %d %d %d', delimiter=' ')
+            for i, j, k in zip(*pos_neg):
+                data1 = np.column_stack((i, j, k, 150, 150, 150))
+                np.savetxt(f, data1, fmt='%d %d %d %d %d %d', delimiter=' ')
+            # data = np.concatenate((data, data1))
+            # np.savetxt(f, data, fmt='%d %d %d %d %d %d', delimiter=' ')
+
+        ply_file = os.path.join(folder, "occ_grad.ply")
+        voxel_grid.txt_to_mesh(file, ply_file)
+
     def save_projection(self, file, index_map, gt=False):
         if not gt:
             # if it is not ground truth, we can have -ve values and we want the probability of
@@ -237,8 +277,8 @@ class ProjectionHelper:
     def project_batch_n_views(self, occ_batch, poses_batch):
         batch_size = occ_batch.size(0)
 
-        batch_index_map = torch.stack([self.project_occ_n_views(occ_batch[i],poses_batch[i])
-                                      for i in range(batch_size)])
+        batch_index_map = torch.stack([self.project_occ_n_views(occ_batch[i], poses_batch[i])
+                                       for i in range(batch_size)])
 
         return batch_index_map
 
@@ -287,6 +327,16 @@ class ProjectionHelper:
 class Projection(Function):
 
     @staticmethod
+    def visualize(grads, img_grad=True):
+        folder = "/home/parika/WorkingDir/complete3D/Assets/output-network/data/grads"
+        projection_helper = ProjectionHelper()
+
+        if img_grad:
+            projection_helper.save_gradient_n_views(folder, grads[0])
+        else:
+            projection_helper.save_gradient_occ(folder, grads[0])
+
+    @staticmethod
     def project(occ_grid, poses):
         projection_helper = ProjectionHelper()
         index_map = projection_helper.project_batch_n_views(occ_grid, poses)
@@ -310,7 +360,7 @@ class Projection(Function):
     @staticmethod
     def backward(ctx, grad):
         # saving the gradient
-        np.savetxt("grad_out.txt",grad[0].cpu().numpy())
+        Projection.visualize(grad)
         flatten_occ, index_map = ctx.saved_variables
 
         batch_size = flatten_occ.size(0)
@@ -338,8 +388,9 @@ class Projection(Function):
         output = torch.stack([torch.reshape(torch.mean(output[b], dim=0), (1, 32, 32, 32))
                               for b in range(batch_size)])
 
-        return output, None
+        Projection.visualize(output, False)
 
+        return output, None
 
     # @staticmethod
     # def backward(ctx, grad_output):
@@ -369,7 +420,6 @@ class Projection(Function):
     #     batch_occ = torch.stack(occ_grids)
     #     return batch_occ, None
 
-
 # if __name__ == '__main__':
 #     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #     rainbow_file = "../../../Assets_remote/test/rainbow_frustrum_.txt"
@@ -397,4 +447,3 @@ class Projection(Function):
 #
 #     grad = torch.from_numpy(np.loadtxt('grad_out.txt')).float().to(device).unsqueeze(0)
 #     occ = projection_helper.backward(grad, gt_occ, index_maps)
-

@@ -79,6 +79,9 @@ class Trainer:
             imgs_gt = sample['imgs_gt'].to(self.device)
             poses = sample['poses'].to(self.device)
 
+            poses = poses[:,4,:,:].unsqueeze(0)
+            imgs_gt = imgs_gt[:,4,:].unsqueeze(0)
+
             # zero the parameter gradients
             self.optimizer.zero_grad()
 
