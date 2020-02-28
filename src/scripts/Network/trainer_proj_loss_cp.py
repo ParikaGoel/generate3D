@@ -9,6 +9,7 @@ import pathlib
 import losses
 import JSONHelper
 import numpy as np
+import voxel_grid
 import torch.nn as nn
 import torch.optim as optim
 from model_proj_layer import *
@@ -18,7 +19,7 @@ from torch.utils.tensorboard import SummaryWriter
 from perspective_projection import ProjectionHelper
 
 params = JSONHelper.read("../parameters.json")
-model_name = "model7"
+model_name = "model8"
 
 def create_summary_writers(train_writer_path, val_writer_path):
     """
@@ -68,19 +69,18 @@ class Trainer:
         self.model.train()
         batch_loss = 0.0
 
-        proj_img_out = os.path.join(params["network_output"],"data/proj_imgs/run_%02d"%epoch)
-        gt_img_out = os.path.join(params["network_output"],"data/gt_imgs/run_%02d"%epoch)
+        proj_img_out = os.path.join(params["network_output"],"data/model8/proj_imgs/run_%02d"%epoch)
+        gt_img_out = os.path.join(params["network_output"],"data/model8/gt_imgs/run_%02d"%epoch)
+        occ_out = os.path.join(params["network_output"],"data/model8/occ/run_%02d"%epoch)
         pathlib.Path(proj_img_out).mkdir(parents=True, exist_ok=True)
         pathlib.Path(gt_img_out).mkdir(parents=True, exist_ok=True)
+        pathlib.Path(occ_out).mkdir(parents=True, exist_ok=True)
 
         for idx, sample in enumerate(self.dataloader_train):
             occ_input = sample['occ_grid'].to(self.device)
             occ_gt = sample['occ_gt'].to(self.device)
             imgs_gt = sample['imgs_gt'].to(self.device)
             poses = sample['poses'].to(self.device)
-
-            poses = poses[:, 0, :, :].unsqueeze(0)
-            imgs_gt = imgs_gt[:, 0, :].unsqueeze(0)
 
             # zero the parameter gradients
             self.optimizer.zero_grad()
@@ -94,6 +94,9 @@ class Trainer:
 
             for img_idx, img_gt in enumerate(imgs_gt[0]):
                 projection_helper.save_projection(os.path.join(gt_img_out, "img_%02d.png" % img_idx), img_gt, True)
+
+            dataloader.save_sample(os.path.join(occ_out,"pred_occ.txt"), torch.nn.Sigmoid()(occ[0].detach()))
+            voxel_grid.txt_to_mesh(os.path.join(occ_out,"pred_occ.txt"), os.path.join(occ_out,"pred_occ.ply"))
 
             loss = losses.proj_loss(proj_imgs, imgs_gt, self.device)
 
@@ -136,7 +139,7 @@ class Trainer:
 
     def start(self, train_writer, val_writer):
         print("Start training")
-        for epoch in range(60):
+        for epoch in range(100):
             train_loss = self.train(epoch)
             # val_loss = self.validate(epoch)
             # print("Train loss: %.3f" % train_loss)

@@ -149,14 +149,7 @@ from PIL import Image
 
 
 if __name__ == '__main__':
-    grad = torch.from_numpy(np.loadtxt('grad.txt')).float()
-    print(grad.shape)
-    # mask = torch.gt(grad, 1e-20)
-    # proj_img = torch.empty((512 * 512), dtype=torch.uint8).fill_(1)
-    # proj_img[mask] = 0
-    # proj_img = torch.reshape(proj_img, (512, 512))
-    #
-    # img_np = proj_img.cpu().numpy().astype(np.uint8)
-    # img_np[img_np == 1] = 255
-    # img = Image.fromarray(img_np, 'L')
-    # img.show()
+    grid1 = torch.zeros(32 * 32 * 32, dtype=torch.float)
+
+    output = torch.mean(torch.stack([grid1 for i in range(3)]), dim=0)
+    print(output)

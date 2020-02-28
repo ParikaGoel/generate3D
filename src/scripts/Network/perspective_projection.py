@@ -162,8 +162,9 @@ class ProjectionHelper:
 
     def copy_grad_n_views_occ(self, index_maps, grads):
         n_views = grads.size(0)
-        output = torch.mean(torch.stack([self.copy_grad_to_occ(index_maps[i], grads[i])
-                     for i in range(n_views)]), dim=0)
+        output = torch.stack([self.copy_grad_to_occ(index_maps[i], grads[i])
+                     for i in range(n_views)])
+        output = torch.mean(output, dim=0)
         return output
 
 
@@ -222,13 +223,18 @@ class ProjectionHelper:
         ply_file = os.path.join(folder, "occ_grad.ply")
         voxel_grid.txt_to_mesh(file, ply_file)
 
+    def save_occ_grid(self, folder, occ):
+        occ = occ[0, 0].cpu().numpy() # removes batch and channel dimension
+        file = os.path.join(folder, "pred_occ.txt")
+
+
 
 # Inherit from Function
 class Projection(Function):
 
     @staticmethod
     def visualize(grads, img_grad=True):
-        folder = "/home/parika/WorkingDir/complete3D/Assets/output-network/data/grads"
+        folder = "/home/parika/WorkingDir/complete3D/Assets/output-network/data/model8/grads"
         projection_helper = ProjectionHelper()
 
         if img_grad:
@@ -240,6 +246,7 @@ class Projection(Function):
     def forward(ctx, occ_grid, poses):
         projection_helper = ProjectionHelper()
         batch_index_map, batch_projs = projection_helper.project_batch_n_views(occ_grid, poses)
+
         ctx.save_for_backward(batch_index_map)
         return batch_projs
 
@@ -247,7 +254,8 @@ class Projection(Function):
     def backward(ctx, grads):
         # saving the gradient
         Projection.visualize(grads)
-        batch_index_map = ctx.saved_variables
+        batch_index_map = ctx.saved_tensors
+        batch_index_map = batch_index_map[0]
         batch_size = grads.size(0)
         projection_helper = ProjectionHelper()
         output = torch.stack([torch.reshape(projection_helper.copy_grad_n_views_occ(batch_index_map[b], grads[b]),
