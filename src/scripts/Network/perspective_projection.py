@@ -119,7 +119,7 @@ class ProjectionHelper:
 
         flatten_occ = torch.flatten(occ_grid, start_dim=0, end_dim=-1)
 
-        index_map = index_map.reshape((4,-1))
+        index_map = index_map.reshape((4, -1))
 
         for i in range(flatten_occ.size(0)):
             proj[index_map[1, i]:index_map[3, i], index_map[0, i]:index_map[2, i]] = torch.add(
@@ -143,13 +143,13 @@ class ProjectionHelper:
         batch_index_map = self.index_mapping_batch_n_views(poses_batch)
 
         batch_projs = torch.stack([self.project_occ_n_views(occ_batch[i], batch_index_map[i])
-                                       for i in range(batch_size)])
+                                   for i in range(batch_size)])
 
         return batch_index_map, batch_projs
 
     def copy_grad_to_occ(self, index_map, grad):
         output = torch.zeros(self.volume_dims[0] * self.volume_dims[1] * self.volume_dims[2],
-                                      dtype=torch.float).to(self.device)
+                             dtype=torch.float).to(self.device)
 
         index_map = index_map.reshape((4, -1))
         grad = grad.reshape((self.image_dims[1], self.image_dims[0]))
@@ -163,10 +163,9 @@ class ProjectionHelper:
     def copy_grad_n_views_occ(self, index_maps, grads):
         n_views = grads.size(0)
         output = torch.stack([self.copy_grad_to_occ(index_maps[i], grads[i])
-                     for i in range(n_views)])
+                              for i in range(n_views)])
         output = torch.mean(output, dim=0)
         return output
-
 
     def save_projection(self, file, index_map, gt=False):
         if not gt:
@@ -209,7 +208,7 @@ class ProjectionHelper:
 
     def save_gradient_occ(self, folder, grad_occ):
         file = os.path.join(folder, "occ_grad.txt")
-        grads = grad_occ[0].cpu().numpy()
+        grads = grad_occ[0].cpu().numpy().transpose(2, 1, 0)
         positions = np.where(grads > 1e-10)
         pos_neg = np.where(grads < -1e-10)
         with open(file, "w") as f:
@@ -223,18 +222,13 @@ class ProjectionHelper:
         ply_file = os.path.join(folder, "occ_grad.ply")
         voxel_grid.txt_to_mesh(file, ply_file)
 
-    def save_occ_grid(self, folder, occ):
-        occ = occ[0, 0].cpu().numpy() # removes batch and channel dimension
-        file = os.path.join(folder, "pred_occ.txt")
-
-
 
 # Inherit from Function
 class Projection(Function):
 
     @staticmethod
     def visualize(grads, img_grad=True):
-        folder = "/home/parika/WorkingDir/complete3D/Assets/output-network/data/model8/grads"
+        folder = "/home/parika/WorkingDir/complete3D/Assets/output-network/data/model7/grads"
         projection_helper = ProjectionHelper()
 
         if img_grad:
@@ -264,7 +258,6 @@ class Projection(Function):
         Projection.visualize(output, False)
 
         return output, None
-
 
 # if __name__ == '__main__':
 #     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

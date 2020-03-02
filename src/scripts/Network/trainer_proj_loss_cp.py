@@ -19,7 +19,6 @@ from torch.utils.tensorboard import SummaryWriter
 from perspective_projection import ProjectionHelper
 
 params = JSONHelper.read("../parameters.json")
-model_name = "model8"
 
 def create_summary_writers(train_writer_path, val_writer_path):
     """
@@ -30,25 +29,6 @@ def create_summary_writers(train_writer_path, val_writer_path):
     writer_train = SummaryWriter(train_writer_path)
     writer_val = SummaryWriter(val_writer_path)
     return writer_train, writer_val
-
-
-def hook_fn(m, i, o):
-    print(m)
-    print("------------Input Grad------------")
-
-    for grad in i:
-        try:
-            print(grad.shape)
-        except AttributeError:
-            print("None found for Gradient")
-
-    print("------------Output Grad------------")
-    for grad in o:
-        try:
-            print(grad)
-        except AttributeError:
-            print("None found for Gradient")
-    print("\n")
 
 
 class Trainer:
@@ -69,9 +49,9 @@ class Trainer:
         self.model.train()
         batch_loss = 0.0
 
-        proj_img_out = os.path.join(params["network_output"],"data/model8/proj_imgs/run_%02d"%epoch)
-        gt_img_out = os.path.join(params["network_output"],"data/model8/gt_imgs/run_%02d"%epoch)
-        occ_out = os.path.join(params["network_output"],"data/model8/occ/run_%02d"%epoch)
+        proj_img_out = os.path.join(params["network_output"],"data/" + config.model_name + "/proj_imgs/run_%02d"%epoch)
+        gt_img_out = os.path.join(params["network_output"],"data/" + config.model_name + "/gt_imgs/run_%02d"%epoch)
+        occ_out = os.path.join(params["network_output"],"data/" + config.model_name + "/occ/run_%02d"%epoch)
         pathlib.Path(proj_img_out).mkdir(parents=True, exist_ok=True)
         pathlib.Path(gt_img_out).mkdir(parents=True, exist_ok=True)
         pathlib.Path(occ_out).mkdir(parents=True, exist_ok=True)
@@ -81,6 +61,9 @@ class Trainer:
             occ_gt = sample['occ_gt'].to(self.device)
             imgs_gt = sample['imgs_gt'].to(self.device)
             poses = sample['poses'].to(self.device)
+
+            poses = poses[:, 0, :, :].unsqueeze(0)
+            imgs_gt = imgs_gt[:, 0, :].unsqueeze(0)
 
             # zero the parameter gradients
             self.optimizer.zero_grad()
@@ -149,14 +132,14 @@ class Trainer:
 
             # Save the trained model
             if epoch % 4 == 0:
-                torch.save(self.model.state_dict(), params["network_output"] + "saved_models/" + model_name + "_%02d.pth"%epoch)
+                torch.save(self.model.state_dict(), params["network_output"] + "saved_models/" + config.model_name + "_%02d.pth"%epoch)
 
         print("Finished training")
         train_writer.close()
         val_writer.close()
 
         # Save the trained model
-        torch.save(self.model.state_dict(), params["network_output"] + "saved_models/" + model_name + ".pth")
+        torch.save(self.model.state_dict(), params["network_output"] + "saved_models/" + config.model_name + ".pth")
 
 
 if __name__ == '__main__':
@@ -170,7 +153,7 @@ if __name__ == '__main__':
             model_id = f[f.rfind('/') + 1:f.rfind('.')]
             train_list.append({'synset_id': synset_id, 'model_id': model_id})
 
-    print("Models not being used in training: ", train_list[330:])
+    # print("Models not being used in training: ", train_list[330:])
     # val_list = train_list[250:330]
     # train_list = train_list[:250]
     val_list = train_list[:1]
@@ -185,8 +168,8 @@ if __name__ == '__main__':
     print("Device: ", device)
     print("Training list: ", train_list)
 
-    train_writer_path = params["network_output"] + "logs/logs_" + model_name + "/train/"
-    val_writer_path = params["network_output"] + "logs/logs_" + model_name + "/val/"
+    train_writer_path = params["network_output"] + "logs/logs_" + config.model_name + "/train/"
+    val_writer_path = params["network_output"] + "logs/logs_" + config.model_name + "/val/"
 
     pathlib.Path(train_writer_path).mkdir(parents=True, exist_ok=True)
     pathlib.Path(val_writer_path).mkdir(parents=True, exist_ok=True)

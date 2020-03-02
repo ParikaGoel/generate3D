@@ -39,10 +39,12 @@ class Tester:
             imgs_gt = sample['imgs_gt'].to(self.device)
             poses = sample['poses'].to(self.device)
 
+            poses = poses[:, 0, :, :].unsqueeze(0)
+            imgs_gt = imgs_gt[:, 0, :].unsqueeze(0)
+
             projection_helper = ProjectionHelper()
-            index_map = projection_helper.project_batch_n_views(occ_input, poses)
-            occ, proj_imgs = model(occ_input, index_map)
-            # occ = torch.nn.Sigmoid()(occ)
+            occ, proj_imgs = model(occ_input, poses)
+            occ = torch.nn.Sigmoid()(occ)
 
             iou_val = metric.iou(occ, occ_gt)
 
@@ -99,7 +101,7 @@ if __name__ == '__main__':
 
     out_folder = params["network_output"]
     # saved_model = out_folder + "saved_models/" + config.model_name + ".pth"
-    saved_model = out_folder + "saved_models/model9_21.pth"
+    saved_model = out_folder + "saved_models/model7_96.pth"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     print("Saved model: ", saved_model)
