@@ -61,20 +61,10 @@ class ProjectionHelper:
         y = (p[1] * self.intrinsic[1][1]) / p[2] + self.intrinsic[1][2]
         return torch.Tensor([x, y, p[2]])
 
-    def compute_index_mapping(self, occ_grid, world_to_camera):
-        index_map = torch.empty((self.image_dims[1], self.image_dims[0]), dtype=int).fill_(-1).to(self.device)
-        occ = torch.flatten(occ_grid, start_dim=0, end_dim=-1)
-        occ = torch.nn.Sigmoid()(occ)
-        occ_mask = torch.gt(occ, 0.5)
-
-        if not occ_mask.any():
-            print("error: Occupancy grid is empty")
-            return torch.flatten(index_map, start_dim=0, end_dim=-1)
-
+    def compute_index_mapping(self, world_to_camera):
         lin_ind_volume = torch.arange(0, self.volume_dims[0] * self.volume_dims[1] * self.volume_dims[2],
                                       out=torch.LongTensor()).to(self.device)
-        lin_ind_volume = lin_ind_volume[occ_mask]
-        grid_coords = self.grid_to_world.new(4, lin_ind_volume.size(0))
+        grid_coords = self.grid_to_world.new(4, lin_ind_volume.size(0)).int()
         grid_coords[2] = lin_ind_volume / (self.volume_dims[0] * self.volume_dims[1])
         tmp = lin_ind_volume - (grid_coords[2] * self.volume_dims[0] * self.volume_dims[1]).long()
         grid_coords[1] = tmp / self.volume_dims[0]
@@ -86,69 +76,63 @@ class ProjectionHelper:
                                       [0, 0, 1, 1, 0, 0, 1, 1],
                                       [0, 0, 0, 0, 1, 1, 1, 1],
                                       [0, 0, 0, 0, 0, 0, 0, 0]]).to(self.device)
-        vertex_coords = torch.transpose(vertex_coords, 0, 1)
 
-        corners = torch.stack([grid_coords.int() + vertex_coords[i][:, None] for i in range(8)])
+        corners = grid_coords.unsqueeze(0).repeat(8, 1, 1)
+        for i in range(8):
+            corners[i] = corners[i] + vertex_coords[:, i, None]
 
         # transform to current frame
         camera_coords = torch.matmul(world_to_camera, torch.matmul(self.grid_to_world, corners.float()))
-        depth = camera_coords.new(camera_coords.size(2)+1)
-        depth[:-1] = torch.min(torch.abs(camera_coords[:, 2, :]), dim=0).values
-        depth[-1] = torch.max(depth[:-1]) + 1
 
         # project into image
         p = camera_coords.clone()
-        p[:, 1, :] = -p[:, 1, :]  # perspective projection flips the image in y- direction
-        p[:, 0] = (p[:, 0] * self.intrinsic[0][0]) / torch.abs(p[:, 2]) + self.intrinsic[0][2]
-        p[:, 1] = (p[:, 1] * self.intrinsic[1][1]) / torch.abs(p[:, 2]) + self.intrinsic[1][2]
-        p = torch.round(p).long()[:, 0:2, :]
+        for i in range(8):
+            p[i, 1, :] = -p[i, 1, :]  # perspective projection flips the image in y- direction
+            p[i, 0] = (p[i, 0] * self.intrinsic[0][0]) / torch.abs(p[i, 2]) + self.intrinsic[0][2]
+            p[i, 1] = (p[i, 1] * self.intrinsic[1][1]) / torch.abs(p[i, 2]) + self.intrinsic[1][2]
+        p = torch.round(p).long()
 
         p = torch.clamp(p, min=0, max=511)
-        pmin = torch.min(p, dim=0).values
-        pmax = torch.max(p, dim=0).values
-
-        index_map = index_map.fill_(lin_ind_volume.size(0))
-
-        for i in range(lin_ind_volume.size(0)):
-            vals = index_map[pmin[1, i]:pmax[1, i], pmin[0, i]:pmax[0, i]]
-            vals = torch.flatten(vals)
-            depth_vals = torch.index_select(depth, 0, vals)
-            mask = torch.gt(depth_vals, depth[i])
-            vals[mask] = i
-            vals = vals.reshape((pmax[1, i]-pmin[1, i], pmax[0, i]-pmin[0, i]))
-            index_map[pmin[1, i]:pmax[1, i], pmin[0, i]:pmax[0, i]] = vals
+        index_map = p.new(4, p.size(2))
+        index_map[:2, :] = torch.min(p, dim=0).values[0:2, :]
+        index_map[2:, :] = torch.max(p, dim=0).values[0:2, :]
 
         lin_index_map = torch.flatten(index_map, start_dim=0, end_dim=-1)
-        invalid_mask = torch.eq(lin_index_map, lin_ind_volume.size(0))
-        lin_index_map[invalid_mask] = 0
-        lin_index_map = torch.index_select(lin_ind_volume, 0, lin_index_map)
-        lin_index_map[invalid_mask] = -1
 
         return lin_index_map
 
-    def index_mapping_n_views(self, occ_grid, poses):
-        lin_index_map = torch.stack([self.compute_index_mapping(occ_grid, pose) for pose in poses])
+    def index_mapping_n_views(self, poses):
+        lin_index_map = torch.stack([self.compute_index_mapping(pose) for pose in poses])
         return lin_index_map
 
-    def index_mapping_batch_n_views(self, occ_batch, poses_batch):
+    def index_mapping_batch_n_views(self, poses_batch):
         batch_size = poses_batch.size(0)
 
-        batch_index_map = torch.stack([self.index_mapping_n_views(occ_batch[i], poses_batch[i])
+        batch_index_map = torch.stack([self.index_mapping_n_views(poses_batch[i])
                                        for i in range(batch_size)])
 
         return batch_index_map
 
     def compute_projection(self, occ_grid, index_map):
-        invalid_mask = torch.eq(index_map, -1)
-        index_map[invalid_mask] = 0
+        proj = torch.empty((self.image_dims[1], self.image_dims[0]), dtype=torch.double).fill_(0).to(self.device)
+        cnt = torch.empty((self.image_dims[1], self.image_dims[0]), dtype=torch.long).fill_(0).to(self.device)
 
-        occ = torch.flatten(occ_grid, start_dim=0, end_dim=-1).float()
-        proj_img = torch.index_select(occ, 0, index_map)
-        proj_img[invalid_mask] = 0
-        index_map[invalid_mask] = -1
-        # self.show_projection(proj_img)
+        flatten_occ = torch.flatten(occ_grid, start_dim=0, end_dim=-1)
 
-        return proj_img
+        index_map = index_map.reshape((4, -1))
+
+        for i in range(flatten_occ.size(0)):
+            proj[index_map[1, i]:index_map[3, i], index_map[0, i]:index_map[2, i]] = torch.add(
+                proj[index_map[1, i]:index_map[3, i], index_map[0, i]:index_map[2, i]], flatten_occ[i])
+            cnt[index_map[1, i]:index_map[3, i], index_map[0, i]:index_map[2, i]] = torch.add(
+                cnt[index_map[1, i]:index_map[3, i], index_map[0, i]:index_map[2, i]], 1)
+
+        invalid_mask = torch.eq(cnt, 0)
+        proj = torch.div(proj, cnt)
+        proj[invalid_mask] = 0
+        proj = torch.flatten(proj)
+
+        return proj
 
     def project_occ_n_views(self, occ_grid, index_maps):
         projs = torch.stack([self.compute_projection(occ_grid, index_map) for index_map in index_maps])
@@ -156,7 +140,7 @@ class ProjectionHelper:
 
     def project_batch_n_views(self, occ_batch, poses_batch):
         batch_size = occ_batch.size(0)
-        batch_index_map = self.index_mapping_batch_n_views(occ_batch, poses_batch)
+        batch_index_map = self.index_mapping_batch_n_views(poses_batch)
 
         batch_projs = torch.stack([self.project_occ_n_views(occ_batch[i], batch_index_map[i])
                                    for i in range(batch_size)])
@@ -167,11 +151,13 @@ class ProjectionHelper:
         output = torch.zeros(self.volume_dims[0] * self.volume_dims[1] * self.volume_dims[2],
                              dtype=torch.float).to(self.device)
 
-        valid_mask = torch.gt(index_map, -1)
-        grad = grad[valid_mask].float()
-        index_map = index_map[valid_mask]
+        index_map = index_map.reshape((4, -1))
+        grad = grad.reshape((self.image_dims[1], self.image_dims[0]))
 
-        output[index_map] = grad
+        for i in range(output.size(0)):
+            output[i] = torch.mean(grad[index_map[1, i]:index_map[3, i], index_map[0, i]:index_map[2, i]])
+
+        output[torch.isnan(output)] = 0
         return output
 
     def copy_grad_n_views_occ(self, index_maps, grads):
@@ -181,32 +167,26 @@ class ProjectionHelper:
         output = torch.mean(output, dim=0)
         return output
 
-    def show_projection(self, proj_img):
-        img_mask = torch.gt(proj_img, 0.5)
+    def save_projection(self, file, index_map, gt=False):
+        if not gt:
+            # if it is not ground truth, we can have -ve values and we want the probability of
+            # pixel being occupied or not
+            index_map = torch.nn.Sigmoid()(index_map)
+            img_mask = torch.gt(index_map, 0.5)
+        else:
+            img_mask = torch.gt(index_map, 0)
 
-        proj_img = proj_img.fill_(255)
+        proj_img = torch.empty((self.image_dims[1] * self.image_dims[0]), dtype=torch.uint8).fill_(1)
         proj_img[img_mask] = 0
-
         proj_img = torch.reshape(proj_img, (self.image_dims[1], self.image_dims[0]))
 
         img_np = proj_img.cpu().numpy().astype(np.uint8)
-        img = Image.fromarray(img_np, 'L')
-        img.show()
-
-    def save_projection(self, file, proj_img):
-        img = proj_img
-        img = img.detach()
-        img_mask = torch.gt(img, 0.5)
-        img = img.fill_(255)
-        img[img_mask] = 0
-
-        img = torch.reshape(img, (self.image_dims[1], self.image_dims[0]))
-
-        img_np = img.cpu().numpy().astype(np.uint8)
+        img_np[img_np == 1] = 255
         img = Image.fromarray(img_np, 'L')
         img.save(file)
 
     def save_gradient(self, file, grad):
+        # np.savetxt("grad.txt", grad.cpu().numpy())
         mask_pos = torch.gt(grad, 1e-10)
         mask_neg = torch.lt(grad, -1e-10)
         grad_vis = torch.empty((512 * 512), dtype=torch.uint8).fill_(1)
@@ -288,29 +268,26 @@ class Projection(Function):
 #
 #     proj_img_out = "/home/parika/WorkingDir/complete3D/Assets/output-network/data/proj_imgs"
 #     gt_img_out = "/home/parika/WorkingDir/complete3D/Assets/output-network/data/gt_imgs"
-#     out_folder = "/home/parika/WorkingDir/complete3D/Assets/output-network/data"
 #
 #     gt_occ = loader.load_sample(gt_file).to(device).unsqueeze(0)
 #     poses = loader.load_poses(pose_folder).to(device).unsqueeze(0)
 #     gt_imgs = loader.load_imgs(img_folder).to(device).unsqueeze(0)
 #
-#     # poses = poses[:, 10, :, :].unsqueeze(0)
-#     # gt_imgs = gt_imgs[:, 10, :].unsqueeze(0)
+#     poses = poses[:,0,:,:].unsqueeze(0)
 #     projection_helper = ProjectionHelper()
-#     index_maps, projs = projection_helper.project_batch_n_views(gt_occ, poses)
+#     index_maps, proj_imgs = projection_helper.project_batch_n_views(gt_occ, poses)
 #
-#     # grad = torch.from_numpy(np.loadtxt('grad.txt')).float().to(device).unsqueeze(0)
-#     output_occ = projection_helper.copy_grad_n_views_occ(index_maps[0], gt_imgs[0])
-#     projection_helper.save_gradient_occ(out_folder, output_occ)
-#     #
-#     #
-#     for img_idx, proj_img in enumerate(projs[0]):
+#     grad = torch.from_numpy(np.loadtxt('grad.txt')).float().to(device).unsqueeze(0)
+#     projection_helper.copy_grad_n_views_occ(index_maps[0, 0].unsqueeze(0), grad)
+
+#
+#     for img_idx, proj_img in enumerate(proj_imgs[0]):
 #         projection_helper.save_projection(os.path.join(proj_img_out, "img_%02d.png" % img_idx), proj_img, True)
+#     #
+#     # for img_idx, img_gt in enumerate(imgs_gt[0]):
+#     #     projection_helper.save_projection(os.path.join(gt_img_out, "img_%02d.png" % img_idx), img_gt, True)
 #
-#     for img_idx, img_gt in enumerate(gt_imgs[0]):
-#         projection_helper.save_projection(os.path.join(gt_img_out, "img_%02d.png" % img_idx), img_gt, True)
+#     # loss = losses.proj_loss(proj_imgs, imgs_gt, 1, device)
 #
-#     loss = losses.proj_loss(projs, gt_imgs, 1, device)
-#
-#     grad = torch.from_numpy(np.loadtxt('grad_out.txt')).float().to(device).unsqueeze(0)
-#     occ = projection_helper.backward(grad, gt_occ, index_maps)
+#     # grad = torch.from_numpy(np.loadtxt('grad_out.txt')).float().to(device).unsqueeze(0)
+#     # occ = projection_helper.backward(grad, gt_occ, index_maps)

@@ -76,7 +76,7 @@ class Trainer:
                 projection_helper.save_projection(os.path.join(proj_img_out,"img_%02d.png" % img_idx), proj_img)
 
             for img_idx, img_gt in enumerate(imgs_gt[0]):
-                projection_helper.save_projection(os.path.join(gt_img_out, "img_%02d.png" % img_idx), img_gt, True)
+                projection_helper.save_projection(os.path.join(gt_img_out, "img_%02d.png" % img_idx), img_gt)
 
             dataloader.save_sample(os.path.join(occ_out,"pred_occ.txt"), torch.nn.Sigmoid()(occ[0].detach()))
             voxel_grid.txt_to_mesh(os.path.join(occ_out,"pred_occ.txt"), os.path.join(occ_out,"pred_occ.ply"))
