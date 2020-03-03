@@ -65,7 +65,7 @@ class ProjectionHelper:
         index_map = torch.empty((self.image_dims[1], self.image_dims[0]), dtype=int).fill_(-1).to(self.device)
         occ = torch.flatten(occ_grid, start_dim=0, end_dim=-1)
         occ = torch.nn.Sigmoid()(occ)
-        occ_mask = torch.gt(occ, 0.5)
+        occ_mask = torch.gt(occ, 0.2)
 
         if not occ_mask.any():
             print("error: Occupancy grid is empty")
@@ -194,7 +194,7 @@ class ProjectionHelper:
         img.show()
 
     def save_projection(self, file, proj_img):
-        img = proj_img
+        img = proj_img.clone()
         img = img.detach()
         img_mask = torch.gt(img, 0.5)
         img = img.fill_(255)
