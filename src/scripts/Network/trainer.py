@@ -7,10 +7,7 @@ import config
 import pathlib
 import losses
 import JSONHelper
-import numpy as np
 from model import *
-import torch.nn as nn
-import torch.optim as optim
 import dataset_loader as dataloader
 import torch.utils.data as torchdata
 from torch.utils.tensorboard import SummaryWriter
@@ -29,25 +26,6 @@ def create_summary_writers(train_writer_path, val_writer_path):
     return writer_train, writer_val
 
 
-def hook_fn(m, i, o):
-    print(m)
-    print("------------Input Grad------------")
-
-    for grad in i:
-        try:
-            print(grad.shape)
-        except AttributeError:
-            print("None found for Gradient")
-
-    print("------------Output Grad------------")
-    for grad in o:
-        try:
-            print(grad)
-        except AttributeError:
-            print("None found for Gradient")
-    print("\n")
-
-
 class Trainer:
     def __init__(self, train_list, val_list, device):
         self.dataset_train = dataloader.DatasetLoad(train_list)
@@ -60,10 +38,9 @@ class Trainer:
 
         self.device = device
         self.model = Net(1, 1).to(device)
-        self.model.conv6.register_backward_hook(hook_fn)
 
     def loss_and_optimizer(self):
-        self.criterion = losses.weighted_bce
+        self.criterion = losses.bce
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
 
     def train(self, epoch):
@@ -79,19 +56,16 @@ class Trainer:
 
             # ===================forward=====================
             output = self.model(input)
-            loss = self.criterion(output, target, 2, self.device)
+            loss = self.criterion(output, target, self.device)
             # ===================backward + optimize====================
             loss.backward()
             self.optimizer.step()
 
-            # ===================see the model parameters===============
-            # for param in self.model.parameters():
-            #     print(param)
-
             # ===================log========================
             batch_loss += loss.item()
 
-            print('Training : [%d : %5d] loss: %.3f' % (epoch + 1, idx + 1, loss.item()))
+            if (idx+1)%10 == 0:
+                print('Training : [%d : %5d] loss: %.3f' % (epoch + 1, idx + 1, loss.item()))
 
         train_loss = batch_loss / (idx + 1)
         return train_loss
@@ -107,7 +81,7 @@ class Trainer:
 
                 # ===================forward=====================
                 output = self.model(input)
-                loss = self.criterion(output, target, 2, self.device)
+                loss = self.criterion(output, target, self.device)
 
                 # ===================log========================
                 batch_loss += loss.item()
@@ -118,11 +92,11 @@ class Trainer:
         print("Start training")
         for epoch in range(config.num_epochs):
             train_loss = self.train(epoch)
-            # val_loss = self.validate()
-            # print("Train loss: %.3f" % train_loss)
-            # print("Val loss: %.3f" % val_loss)
+            val_loss = self.validate()
+            print("Train loss: %.3f" % train_loss)
+            print("Val loss: %.3f" % val_loss)
             train_writer.add_scalar("loss", train_loss, epoch + 1)
-            # val_writer.add_scalar("loss", val_loss, epoch + 1)
+            val_writer.add_scalar("loss", val_loss, epoch + 1)
 
         print("Finished training")
         train_writer.close()
@@ -141,12 +115,9 @@ if __name__ == '__main__':
             model_id = f[f.rfind('/') + 1:f.rfind('.')]
             train_list.append({'synset_id': synset_id, 'model_id': model_id})
 
-    # print("Models not being used in training: ", train_list[330:])
-    # val_list = train_list[250:330]
-    # train_list = train_list[:250]
-
-    val_list = train_list[:1]
-    train_list = train_list[:1]
+    print("Models not being used in training: ", train_list[330:])
+    val_list = train_list[250:330]
+    train_list = train_list[:250]
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

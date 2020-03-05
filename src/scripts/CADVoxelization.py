@@ -2,12 +2,10 @@ import sys
 
 assert sys.version_info >= (3, 5)
 
-import os
 import glob
 import pathlib
 import subprocess
 import JSONHelper
-import numpy as np
 from config import *
 
 if __name__ == '__main__':

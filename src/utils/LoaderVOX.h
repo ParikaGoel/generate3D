@@ -22,21 +22,14 @@ inline static Vox load_vox(std::string filename) {
 	std::ifstream f(filename, std::ios::binary);
 	assert(f.is_open());
 
-	bool is_row_major = false;
-
 	std::string extension = filename.substr(filename.find_last_of(".") + 1);
-	if (extension == "df")
-		is_row_major = true;
-	else if (extension == "sdf")
-		is_row_major = true;
 	
 	Vox vox;
 
 	f.read((char*)vox.dims.data(), 3*sizeof(int32_t));
 	f.read((char*)&vox.res, sizeof(float));
 	f.read((char*)vox.grid2world.data(), 16*sizeof(float));
-	if (is_row_major)
-		vox.grid2world = vox.grid2world.transpose().eval();
+	vox.grid2world = vox.grid2world.transpose().eval();
 	
 	int n_elems = vox.dims(0)*vox.dims(1)*vox.dims(2);	
 	

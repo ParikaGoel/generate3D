@@ -11,9 +11,8 @@ import numpy as np
 from camera import *
 from PIL import Image
 from voxel_grid import *
-import matplotlib.pyplot as plt
-from Network import dataset_loader as loader
-from Network import perspective_projection as projection
+import dataset_loader as loader
+import perspective_projection as projection
 
 
 # Debugging helper function : saves the color values with corresponding pixel coordinates
@@ -58,10 +57,8 @@ def raycast(txt_file, pose_file, color_file, depth_file):
             data = np.column_stack((i, j, k, color[0], color[1], color[2]))
             np.savetxt(f, data, fmt='%d %d %d %d %d %d', delimiter=' ')
 
-def raycast_depth(txt_file, pose_file, color_file, depth_file):
+def raycast_depth(txt_file, pose_file, depth_file):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    im = Image.open(color_file)
-    color = torch.from_numpy(np.array(im)).float().to(device)
 
     depth_im = Image.open(depth_file)
     depth = torch.from_numpy(np.array(depth_im)).float().to(device)
@@ -101,7 +98,7 @@ def generate_raycasted_model(synset_id, model_id):
         print(synset_id, " : ", model_id, " already exists. Skipping......")
         return
 
-    raycast_depth(voxel_txt_file, pose_file, image_file, depth_file)
+    raycast_depth(voxel_txt_file, pose_file, depth_file)
 
     txt_to_mesh(voxel_txt_file, voxel_file)
 

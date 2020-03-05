@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-from perspective_projection import Projection
 
 
 class Net(nn.Module):
@@ -8,7 +7,7 @@ class Net(nn.Module):
         super(Net, self).__init__()
 
         # Encoder Part
-        self.conv1 = nn.Conv3d(in_channels, 32, kernel_size=3, stride=2, padding=1) # try stride of 2
+        self.conv1 = nn.Conv3d(in_channels, 32, kernel_size=3, stride=2, padding=1)  # try stride of 2
         self.conv2 = nn.Conv3d(32, 64, kernel_size=3, stride=2, padding=1)
         self.conv3 = nn.Conv3d(64, 128, kernel_size=3, stride=2, padding=1)
         self.relu = nn.ReLU(inplace=True)
@@ -17,7 +16,6 @@ class Net(nn.Module):
         self.conv4 = nn.ConvTranspose3d(128, 64, kernel_size=3, stride=3, padding=2)
         self.conv5 = nn.ConvTranspose3d(64, 32, kernel_size=3, stride=2, padding=1, output_padding=1)
         self.conv6 = nn.ConvTranspose3d(32, out_channels, kernel_size=3, stride=2, padding=1, output_padding=1)
-
 
     def forward(self, x):
         # Encoder Part : [1, 32, 32, 32] -> [128, 4, 4, 4]
@@ -38,7 +36,7 @@ class Net2D(nn.Module):
         super(Net2D, self).__init__()
 
         # Encoder Part
-        self.conv1 = nn.Conv2d(in_channels, 32, kernel_size=3, stride=2, padding=1) # try stride of 2
+        self.conv1 = nn.Conv2d(in_channels, 32, kernel_size=3, stride=2, padding=1)  # try stride of 2
         self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1)
         self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1)
         self.relu = nn.ReLU(inplace=True)
@@ -47,7 +45,6 @@ class Net2D(nn.Module):
         self.conv4 = nn.ConvTranspose2d(128, 64, kernel_size=3, stride=3, padding=2)
         self.conv5 = nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, padding=1, output_padding=1)
         self.conv6 = nn.ConvTranspose2d(32, out_channels, kernel_size=3, stride=2, padding=1, output_padding=1)
-
 
     def forward(self, x):
         # Encoder Part : [3, 32, 32] -> [128, 4, 4]
@@ -61,4 +58,3 @@ class Net2D(nn.Module):
         x = self.relu(self.conv6(x))
 
         return x
-

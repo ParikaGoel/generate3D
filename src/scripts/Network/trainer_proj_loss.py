@@ -1,6 +1,7 @@
 import sys
 
 sys.path.append('../.')
+import os
 import glob
 import torch
 import config
@@ -8,6 +9,7 @@ import pathlib
 import losses
 import JSONHelper
 import numpy as np
+import voxel_grid
 import torch.nn as nn
 import torch.optim as optim
 from model_proj_layer import *
@@ -17,7 +19,6 @@ from torch.utils.tensorboard import SummaryWriter
 from perspective_projection import ProjectionHelper
 
 params = JSONHelper.read("../parameters.json")
-
 
 def create_summary_writers(train_writer_path, val_writer_path):
     """
@@ -48,26 +49,39 @@ class Trainer:
         self.model.train()
         batch_loss = 0.0
 
+        proj_img_out = os.path.join(params["network_output"],"data/" + config.model_name + "/proj_imgs/run_%02d"%epoch)
+        gt_img_out = os.path.join(params["network_output"],"data/" + config.model_name + "/gt_imgs/run_%02d"%epoch)
+        occ_out = os.path.join(params["network_output"],"data/" + config.model_name + "/occ/run_%02d"%epoch)
+        pathlib.Path(proj_img_out).mkdir(parents=True, exist_ok=True)
+        pathlib.Path(gt_img_out).mkdir(parents=True, exist_ok=True)
+        pathlib.Path(occ_out).mkdir(parents=True, exist_ok=True)
+
         for idx, sample in enumerate(self.dataloader_train):
             occ_input = sample['occ_grid'].to(self.device)
             occ_gt = sample['occ_gt'].to(self.device)
             imgs_gt = sample['imgs_gt'].to(self.device)
             poses = sample['poses'].to(self.device)
 
+            poses = poses[:, 0, :, :].unsqueeze(0)
+            imgs_gt = imgs_gt[:, 0, :].unsqueeze(0)
+
             # zero the parameter gradients
             self.optimizer.zero_grad()
 
             # ===================forward=====================
             projection_helper = ProjectionHelper()
-            index_map = projection_helper.project_batch_n_views(occ_input, poses)
-            occ, proj_imgs = self.model(occ_input, index_map)
+            occ, proj_imgs = self.model(occ_input, poses)
 
-            # for proj_img in proj_imgs[0]:
-            #     projection_helper.show_projection(proj_img)
-            #
-            # for img_gt in imgs_gt[0]:
-            #     projection_helper.show_projection(img_gt)
-            loss = losses.vol_proj_loss(proj_imgs, imgs_gt, 1, self.device)
+            for img_idx, proj_img in enumerate(proj_imgs[0]):
+                projection_helper.save_projection(os.path.join(proj_img_out,"img_%02d.png" % img_idx), proj_img)
+
+            for img_idx, img_gt in enumerate(imgs_gt[0]):
+                projection_helper.save_projection(os.path.join(gt_img_out, "img_%02d.png" % img_idx), img_gt)
+
+            dataloader.save_sample(os.path.join(occ_out,"pred_occ.txt"), torch.nn.Sigmoid()(occ[0].detach()))
+            voxel_grid.txt_to_mesh(os.path.join(occ_out,"pred_occ.txt"), os.path.join(occ_out,"pred_occ.ply"))
+
+            loss = losses.proj_loss(proj_imgs, imgs_gt, self.device)
 
             # ===================backward + optimize====================
             loss.backward()
@@ -93,10 +107,10 @@ class Trainer:
                 poses = sample['poses'].to(self.device)
 
                 # ===================forward=====================
-                projection_helper = ProjectionHelper()
-                index_map = projection_helper.project_batch_n_views(occ_input, poses)
-                occ, proj_imgs = self.model(occ_input, index_map)
-                loss = losses.vol_proj_loss(proj_imgs, imgs_gt, 1, self.device)
+                # projection_helper = ProjectionHelper()
+                # index_map = projection_helper.project_batch_n_views(occ_input, poses)
+                occ, proj_imgs = self.model(occ_input, poses)
+                loss = losses.proj_loss(proj_imgs, imgs_gt, 1, self.device)
 
                 # ===================log========================
                 batch_loss += loss.item()
@@ -108,16 +122,17 @@ class Trainer:
 
     def start(self, train_writer, val_writer):
         print("Start training")
-        for epoch in range(config.num_epochs):
+        for epoch in range(100):
             train_loss = self.train(epoch)
-            val_loss = self.validate(epoch)
-            print("Train loss: %.3f" % train_loss)
-            print("Val loss: %.3f" % val_loss)
+            # val_loss = self.validate(epoch)
+            # print("Train loss: %.3f" % train_loss)
+            # print("Val loss: %.3f" % val_loss)
             train_writer.add_scalar("loss", train_loss, epoch + 1)
-            val_writer.add_scalar("loss", val_loss, epoch + 1)
+            # val_writer.add_scalar("loss", val_loss, epoch + 1)
 
             # Save the trained model
-            torch.save(self.model.state_dict(), params["network_output"] + "saved_models/" + config.model_name + "_%02d.pth"%epoch)
+            if epoch % 4 == 0:
+                torch.save(self.model.state_dict(), params["network_output"] + "saved_models/" + config.model_name + "_%02d.pth"%epoch)
 
         print("Finished training")
         train_writer.close()
@@ -138,15 +153,20 @@ if __name__ == '__main__':
             model_id = f[f.rfind('/') + 1:f.rfind('.')]
             train_list.append({'synset_id': synset_id, 'model_id': model_id})
 
-    print("Models not being used in training: ", train_list[330:])
-    val_list = train_list[250:330]
-    train_list = train_list[:250]
+    # print("Models not being used in training: ", train_list[330:])
+    # val_list = train_list[250:330]
+    # train_list = train_list[:250]
+    val_list = train_list[:1]
+    train_list = train_list[:1]
+
+    # model_id = "501154f25599ee80cb2a965e75be701c"
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     print("Training data size: ", len(train_list))
     print("Validation data size: ", len(val_list))
     print("Device: ", device)
+    print("Training list: ", train_list)
 
     train_writer_path = params["network_output"] + "logs/logs_" + config.model_name + "/train/"
     val_writer_path = params["network_output"] + "logs/logs_" + config.model_name + "/val/"
