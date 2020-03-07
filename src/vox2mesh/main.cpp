@@ -44,6 +44,7 @@ void get_position_and_color_from_vox(Vox &vox, PlyMesh &mesh, Eigen::Vector3f vo
 			for (int i = 0; i < vox.dims[0]; i++) {
 				int index = k*vox.dims[1]*vox.dims[0] + j*vox.dims[0] + i;
 				if (std::abs(vox.sdf[index]) <= inargs.trunc*vox.res) {
+				    std::cout<< vox.sdf[index] << "\n";
 					Eigen::Vector3f p;
 					p = (vox.grid2world*Eigen::Vector4f(i, j, k, 1)).topRows(3);
 					positions.push_back(p);

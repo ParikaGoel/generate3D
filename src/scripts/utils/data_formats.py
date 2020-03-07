@@ -12,7 +12,7 @@ def write_off(file, vertices, faces):
 
     :param vertices: vertices as tuples of (x, y, z) coordinates
     :type vertices: [(float)]
-    :param faces: faces as tuples of (num_vertices, vertex_id_1, vertex_id_2, ...)
+    :param faces: faces as tuples of (vertex_id_1, vertex_id_2, ...)
     :type faces: [(int)]
     """
 
@@ -30,19 +30,9 @@ def write_off(file, vertices, faces):
             fp.write(str(vertex[0]) + ' ' + str(vertex[1]) + ' ' + str(vertex[2]) + '\n')
 
         for face in faces:
-            # ToDo : Change it to generic, should work with any number of faces
-            assert face[0] == 3, 'only triangular faces supported (%s)' % file
-            assert len(face) == 4, 'faces need to have 3 vertices, but found %d (%s)' % (len(face), file)
+            assert len(face) == 3, 'only triangular faces supported (%s)' % file
 
-            for i in range(len(face)):
-                assert face[i] >= 0 and face[i] < num_vertices, 'invalid vertex index %d (of %d vertices) (%s)' % (
-                    face[i], num_vertices, file)
-
-                fp.write(str(face[i]))
-                if i < len(face) - 1:
-                    fp.write(' ')
-
-            fp.write('\n')
+            fp.write("%d %d %d %d\n" % (len(face), face[0], face[1], face[2]))
 
         # add empty line to be sure
         fp.write('\n')
@@ -74,18 +64,9 @@ def write_coff(file, vertices, faces):
                     int(vertex[4])) + ' ' + str(int(vertex[5])) + '\n')
 
         for face in faces:
-            assert face[0] == 3, 'only triangular faces supported (%s)' % file
-            assert len(face) == 4, 'faces need to have 3 vertices, but found %d (%s)' % (len(face), file)
+            assert len(face) == 3, 'only triangular faces supported (%s)' % file
 
-            for i in range(len(face)):
-                assert face[i] >= 0 and face[i] < num_vertices, 'invalid vertex index %d (of %d vertices) (%s)' % (
-                    face[i], num_vertices, file)
-
-                fp.write(str(face[i]))
-                if i < len(face) - 1:
-                    fp.write(' ')
-
-            fp.write('\n')
+            fp.write("%d %d %d %d\n" % (len(face), face[0], face[1], face[2]))
 
         # add empty line to be sure
         fp.write('\n')
@@ -231,13 +212,9 @@ def read_obj(filename):
     attrib = reader.GetAttrib()
     shapes = reader.GetShapes()
 
-    vertices = []
     faces = []
 
-    for vert in attrib.vertices:
-        vertices.append(vert)
-
-    vertices = list(map(tuple, np.asarray(vertices).reshape(-1,3)))
+    vertices = list(map(tuple, np.asarray(attrib.vertices).reshape(-1,3)))
 
     for shape in shapes:
         index_offset = 0
@@ -250,3 +227,10 @@ def read_obj(filename):
             index_offset = index_offset + fv
 
     return vertices, faces
+
+if __name__ == '__main__':
+    obj_file = "./Assets/shapenet-data/02747177/8bdea15ae5d929d0a2eb129d649f68cf/models/model_normalized.obj"
+    off_file = "./Assets/test.off"
+
+    vertices, faces = read_obj(obj_file)
+    write_off(off_file, vertices, faces)
