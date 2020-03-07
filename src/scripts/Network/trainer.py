@@ -107,7 +107,7 @@ class Trainer:
 
 
 if __name__ == '__main__':
-    synset_train_lst = ['02747177']
+    synset_train_lst = ['04379243']
     train_list = []
 
     for synset_id in synset_train_lst:
@@ -115,9 +115,9 @@ if __name__ == '__main__':
             model_id = f[f.rfind('/') + 1:f.rfind('.')]
             train_list.append({'synset_id': synset_id, 'model_id': model_id})
 
-    print("Models not being used in training: ", train_list[330:])
-    val_list = train_list[250:330]
-    train_list = train_list[:250]
+    # print("Models not being used in training: ", train_list[330:])
+    val_list = train_list[5400:6740]
+    train_list = train_list[:5400]
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
