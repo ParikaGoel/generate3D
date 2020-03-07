@@ -96,18 +96,22 @@ def raycast(txt_file, pose_file, color_file, depth_file):
     index_map = compute_index_mapping(pose, grid_to_world, device).to(device)
 
     voxel_grid = torch.empty((config.vox_dim * config.vox_dim * config.vox_dim, 3),
-                         dtype=torch.float).fill_(255).to(device)
+                         dtype=torch.float).fill_(256).to(device)
 
     index_map = index_map.reshape((4, -1))
 
     for i in range(voxel_grid.size(0)):
-        voxel_grid[i] = torch.mean(torch.flatten(color[index_map[1, i]:index_map[3, i], index_map[0, i]:index_map[2, i]], start_dim=0, end_dim=1), dim=0)
+        c = color[index_map[1, i]:index_map[3, i], index_map[0, i]:index_map[2, i]]
+        m = torch.gt(depth[index_map[1, i]:index_map[3, i], index_map[0, i]:index_map[2, i]], 0)
+        if m.any():
+            valid_colors = c[m]
+            mean_color = torch.mean(valid_colors, axis=0)
+            voxel_grid[i] = mean_color
 
-    voxel_grid[torch.isnan(voxel_grid)] = 255
-    voxel_grid = torch.ceil(voxel_grid).cpu().numpy().astype(np.uint8)
+    voxel_grid = torch.ceil(voxel_grid).cpu().numpy().astype(np.uint16)
     voxel_grid = voxel_grid.reshape((config.vox_dim, config.vox_dim, config.vox_dim, 3)).transpose(2, 1, 0, 3)
 
-    positions = np.argwhere(np.all(voxel_grid < 255, axis=3))
+    positions = np.argwhere(np.all(voxel_grid < 256, axis=3))
 
     with open(txt_file, "w") as f:
         for i, j, k in positions:
@@ -143,37 +147,38 @@ def raycast_depth(txt_file, pose_file, depth_file):
 def generate_raycasted_model(synset_id, model_id):
     params = JSONHelper.read("./parameters.json")
 
-    outdir = "/media/sda2/shapenet/shapenet-raytraced/" + synset_id
+    outdir = params["shapenet_raytraced"] + synset_id
     pathlib.Path(outdir).mkdir(parents=True, exist_ok=True)
 
-    pose_file = "/media/sda2/shapenet/shapenet-renderings/" + synset_id + "/" + model_id + "/pose/pose00.json"
-    image_file = "/media/sda2/shapenet/shapenet-renderings/" + synset_id + "/" + model_id + "/color/color00.png"
-    depth_file = "/media/sda2/shapenet/shapenet-renderings/" + synset_id + "/" + model_id + "/depth/depth00.png"
-    voxel_file = outdir + "/" + model_id + ".ply"
-    voxel_txt_file = outdir + "/" + model_id + ".txt"
+    pose_file = params["shapenet_renderings"] + synset_id + "/" + model_id + "/pose/pose00.json"
+    color_file = params["shapenet_renderings"] + synset_id + "/" + model_id + "/color/color00.png"
+    depth_file = params["shapenet_renderings"] + synset_id + "/" + model_id + "/depth/depth00.png"
+    voxel_file = outdir + "/" + model_id + "_color_.ply"
+    voxel_txt_file = outdir + "/" + model_id + "_color_.txt"
 
     if os.path.exists(voxel_file) and os.path.exists(voxel_txt_file):
         print(synset_id, " : ", model_id, " already exists. Skipping......")
         return
 
-    raycast_depth(voxel_txt_file, pose_file, depth_file)
+    # raycast_depth(voxel_txt_file, pose_file, depth_file)
+    raycast(voxel_txt_file, pose_file, color_file, depth_file)
 
     txt_to_mesh(voxel_txt_file, voxel_file)
 
 
 if __name__ == '__main__':
     synset_lst = []
-    synset_lst.append("03001627")
+    synset_lst.append("04379243")
 
     params = JSONHelper.read("./parameters.json")
 
     failed_cases = {}
-    file = "/media/sda2/shapenet/shapenet-raytraced/failed_cases.json"
+    file = params["shapenet_raytraced"] + "failed_cases.json"
 
 
     for synset_id in synset_lst:
-        for f in glob.glob("/media/sda2/shapenet/shapenet-renderings/" + synset_id + "/*/color/color00.png"):
-            model_id = f.split("/", 10)[6]
+        for f in glob.glob(params["shapenet_renderings"] + synset_id + "/*/color/color00.png"):
+            model_id = f.split("/", 10)[8]
             print(synset_id, " : ", model_id)
 
             try:

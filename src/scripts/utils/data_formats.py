@@ -204,7 +204,7 @@ def read_obj(filename):
 
     if ret == False:
         print("Warn:", reader.Warning())
-        pint("Err:", reader.Error())
+        print("Err:", reader.Error())
         print("Failed to load : ", filename)
 
         sys.exit(-1)
@@ -229,8 +229,8 @@ def read_obj(filename):
     return vertices, faces
 
 if __name__ == '__main__':
-    obj_file = "./Assets/shapenet-data/02747177/8bdea15ae5d929d0a2eb129d649f68cf/models/model_normalized.obj"
-    off_file = "./Assets/test.off"
+    obj_file = "/home/parika/WorkingDir/complete3D/Assets/1abfb0c03c81fc2219fb4103277a6b93/models/model_normalized.obj"
+    off_file = "/home/parika/WorkingDir/complete3D/Assets/model.ply"
 
     vertices, faces = read_obj(obj_file)
-    write_off(off_file, vertices, faces)
+    write_ply(ply_file, vertices, faces)
