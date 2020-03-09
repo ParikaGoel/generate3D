@@ -4,6 +4,7 @@ import plyfile
 import argparse
 import numpy as np
 import tinyobjloader
+from PIL import Image
 
 
 def write_off(file, vertices, faces):
@@ -106,9 +107,9 @@ def write_ply(file, vertices, faces):
         for vert in vertices:
             if len(vert) == 3:
                 color = (0, 169, 255)
-                fp.write('%f %f %f %d %d %d\n' % vert+color)
+                fp.write('3 %f %f %f %d %d %d\n' % vert+color)
             elif len(vert) == 6:
-                fp.write('%f %f %f %d %d %d\n' % vert)
+                fp.write('3 %f %f %f %d %d %d\n' % vert)
             else:
                 print('Error: Incorrect number of properties in a vertex. Expected 3 or 6 entries\n')
                 return
@@ -229,8 +230,8 @@ def read_obj(filename):
     return vertices, faces
 
 if __name__ == '__main__':
-    obj_file = "/home/parika/WorkingDir/complete3D/Assets/1abfb0c03c81fc2219fb4103277a6b93/models/model_normalized.obj"
-    off_file = "/home/parika/WorkingDir/complete3D/Assets/model.ply"
+    obj_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-data/04379243/1abfb0c03c81fc2219fb4103277a6b93/models/model_normalized.obj"
+    off_file = "/home/parika/WorkingDir/complete3D/Assets/raw/model.off"
 
     vertices, faces = read_obj(obj_file)
-    write_ply(ply_file, vertices, faces)
+    write_off(off_file, vertices, faces)

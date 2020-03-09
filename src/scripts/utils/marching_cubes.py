@@ -18,6 +18,7 @@ def read_sdf(filename):
         pdf = np.fromfile(f, dtype=np.float32, count=n_size)
 
     sdf = np.asarray(sdf).reshape(dims[0], dims[1], dims[2])
+    sdf = sdf / dims[0]
 
     return sdf
 
@@ -69,7 +70,7 @@ if mcubes == None and measure == None:
 
 if __name__ == '__main__':
 
-    input_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/02747177/ffe5f0ef45769204cb2a965e75be701c__0__.df"
+    input_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/04379243/1abfb0c03c81fc2219fb4103277a6b93__0__.df"
     output = "/home/parika/WorkingDir/complete3D/Assets"
     tensor = read_sdf(input_file)
 
@@ -95,7 +96,7 @@ if __name__ == '__main__':
     for n in range(tensor.shape[0]):
         print('Minimum and maximum value: %f and %f. ' % (np.min(tensor[n]), np.max(tensor[n])))
         vertices, faces = marching_cubes_skimage(tensor[n])
-        off_file = '%s/%d.off' % (args.output, n)
+        off_file = '%s/%d.off' % (output, n)
         formatHandler.write_off(off_file, vertices, faces)
         print('Wrote %s.' % off_file)
 

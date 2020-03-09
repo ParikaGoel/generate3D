@@ -18,7 +18,8 @@ inline static void load_mesh(std::string filename, Mesh &mesh) {
 		std::vector<tinyobj::shape_t> shapes;
 		std::vector<tinyobj::material_t> materials;
 		std::string err;
-		bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, filename.c_str());
+		std:string materialDir = filename.substr(0,filename.rfind("/")+1);
+		bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, filename.c_str(), materialDir.c_str());
 		std::cout << err << std::endl;
 		assert(ret);
 
