@@ -153,15 +153,15 @@ def generate_raycasted_model(synset_id, model_id):
     pose_file = "/media/sda2/shapenet/shapenet-renderings/" + synset_id + "/" + model_id + "/pose/pose00.json"
     color_file = "/media/sda2/shapenet/shapenet-renderings/" + synset_id + "/" + model_id + "/color/color00.png"
     depth_file = "/media/sda2/shapenet/shapenet-renderings/" + synset_id + "/" + model_id + "/depth/depth00.png"
-    voxel_file = outdir + "/" + model_id + ".ply"
-    voxel_txt_file = outdir + "/" + model_id + ".txt"
+    voxel_file = outdir + "/" + model_id + "_color_.ply"
+    voxel_txt_file = outdir + "/" + model_id + "_color_.txt"
 
     if os.path.exists(voxel_file) and os.path.exists(voxel_txt_file):
         print(synset_id, " : ", model_id, " already exists. Skipping......")
         return
 
-    raycast_depth(voxel_txt_file, pose_file, depth_file)
-    # raycast(voxel_txt_file, pose_file, color_file, depth_file)
+    # raycast_depth(voxel_txt_file, pose_file, depth_file)
+    raycast(voxel_txt_file, pose_file, color_file, depth_file)
 
     txt_to_mesh(voxel_txt_file, voxel_file)
 

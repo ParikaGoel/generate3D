@@ -1,5 +1,6 @@
 import numpy as np
 from config import *
+import glob
 
 
 class VoxelGrid:
@@ -245,6 +246,9 @@ def write_ply(filename, verts, faces):
 
 
 if __name__ == '__main__':
-    txt_file = "/media/sda2/shapenet/test/rainbow_0_.txt"
-    ply_file = "/media/sda2/shapenet/test/rainbow_0_.ply"
-    txt_to_mesh(txt_file, ply_file)
+    dir = "/home/parika/WorkingDir/implicit-decoder-port/vox-planes/"
+
+    for f in glob.glob(dir + "*.txt"):
+        model_id = f[f.rfind('/') + 1:f.rfind('.')]
+        ply_file = dir + model_id + ".ply"
+        txt_to_mesh(f, ply_file)

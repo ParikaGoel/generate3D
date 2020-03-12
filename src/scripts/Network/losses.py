@@ -2,25 +2,25 @@ import torch
 import numpy as np
 
 
-def create_target_mask2(output, target, weight):
-    weights = target.data.clone()
-
-    output_inds = output <= 0.1
-    target_inds = target == 0
-    intersection = output_inds & target_inds
-
-    weights.fill_(weight)
-    weights.masked_fill_(intersection, 1)
-    return weights
-
-
 def create_target_mask(target, weight):
     weights = target.data.clone()
     weights[weights > 0] = weight
     weights[weights == 0] = 1
     return weights
     
-    
+
+def l1(output, target, device):
+    batch_size = target.shape[0]
+    assert (len(output.shape) > 1)
+    criterion = torch.nn.L1Loss(reduction="none").to(device)
+    loss = criterion(output.float(), target.float())
+    loss = torch.stack([torch.mean(loss[i]) for i in range(batch_size)])
+
+    loss = torch.mean(loss)
+
+    return loss
+
+
 def mse(output, target, device):
     batch_size = target.shape[0]
     assert (len(output.shape) > 1)

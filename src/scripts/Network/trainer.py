@@ -14,6 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 params = JSONHelper.read("../parameters.json")
 
+synset_id = '03001627'
 
 def create_summary_writers(train_writer_path, val_writer_path):
     """
@@ -90,6 +91,7 @@ class Trainer:
 
     def start(self, train_writer, val_writer):
         print("Start training")
+        prev_val_loss = 50000.0
         for epoch in range(config.num_epochs):
             train_loss = self.train(epoch)
             val_loss = self.validate()
@@ -98,30 +100,26 @@ class Trainer:
             train_writer.add_scalar("loss", train_loss, epoch + 1)
             val_writer.add_scalar("loss", val_loss, epoch + 1)
 
-            if epoch % 4 == 0:
+            if val_loss < prev_val_loss:
+                print("Save model on epoch %02d ; val loss: %.3f ; prev val loss: %.3f " % (epoch, val_loss, prev_val_loss))
                 torch.save(self.model.state_dict(),
-                           params["network_output"] + "saved_models/" + config.model_name + "_%02d.pth"%epoch)
+                           params["network_output"] + synset_id + "/saved_models/occ.pth")
+                prev_val_loss = val_loss
 
         print("Finished training")
         train_writer.close()
         val_writer.close()
 
-        # Save the trained model
-        torch.save(self.model.state_dict(), params["network_output"] + "saved_models/" + config.model_name + ".pth")
-
 
 if __name__ == '__main__':
-    synset_train_lst = ['04379243']
     train_list = []
 
-    for synset_id in synset_train_lst:
-        for f in glob.glob(params["shapenet_raytraced"] + synset_id + "/*.txt"):
-            model_id = f[f.rfind('/') + 1:f.rfind('.')]
-            train_list.append({'synset_id': synset_id, 'model_id': model_id})
+    for f in glob.glob(params["shapenet_raytraced"] + synset_id + "/*.txt"):
+        model_id = f[f.rfind('/') + 1:f.rfind('.')]
+        train_list.append({'synset_id': synset_id, 'model_id': model_id})
 
-    # print("Models not being used in training: ", train_list[330:])
-    val_list = train_list[5400:6740]
-    train_list = train_list[:5400]
+    val_list = train_list[4340:5420]
+    train_list = train_list[:4340]
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -129,8 +127,8 @@ if __name__ == '__main__':
     print("Validation data size: ", len(val_list))
     print("Device: ", device)
 
-    train_writer_path = params["network_output"] + "logs/logs_" + config.model_name + "/train/"
-    val_writer_path = params["network_output"] + "logs/logs_" + config.model_name + "/val/"
+    train_writer_path = params["network_output"] + synset_id + "/logs/logs_occ/train/"
+    val_writer_path = params["network_output"] + synset_id + "/logs/logs_occ/val/"
 
     pathlib.Path(train_writer_path).mkdir(parents=True, exist_ok=True)
     pathlib.Path(val_writer_path).mkdir(parents=True, exist_ok=True)

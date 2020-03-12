@@ -5,6 +5,7 @@ import os
 import torch
 import config
 import losses
+import pathlib
 import voxel_grid
 import numpy as np
 from PIL import Image
@@ -248,7 +249,8 @@ class Projection(Function):
 
     @staticmethod
     def visualize(grads, img_grad=True):
-        folder = "/home/parika/WorkingDir/complete3D/Assets/output-network/data/model7/grads"
+        folder = "/home/parika/WorkingDir/complete3D/Assets/output-network/04379243/data/grads"
+        pathlib.Path(folder).mkdir(parents=True, exist_ok=True)
         projection_helper = ProjectionHelper()
 
         if img_grad:

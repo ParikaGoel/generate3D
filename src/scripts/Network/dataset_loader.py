@@ -25,17 +25,17 @@ def load_imgs(folder):
     imgs = torch.stack(imgs)
     return imgs
 
-    
+
 def load_img(png_file):
     """
-    Loads the image from the png file and preprocess it to get the image silhouette
-    image silhouette -> h x w grid containing values (0,1)
+    Loads the image from the png file and preprocess it to get the binary mask
+    binary mask -> h x w grid containing values (0,1)
     :param png_file: Image png file
     :return:
         image silhouette as pytorch tensor (shape: [H, W]) (type: float)
     """
     img = imageio.imread(png_file)
-    img = img[:, :, 0]  # we dont need the color values for silhouette
+    img = img[:, :, 0]  # we dont need the color values for binary mask
     img[img < 255] = 1
     img[img == 255] = 0
     # img will contain the occupancy of the pixels now : 1 refers to object in the pixel
@@ -86,8 +86,7 @@ def load_color_sample(txt_file):
         color = np.array((data[3], data[4], data[5])).astype(int)
         color_grid[:, grid_coord[2], grid_coord[1], grid_coord[0]] = color
 
-    # color_grid = torch.from_numpy(color_grid.transpose(3, 2, 1, 0))
-    color_grid = torch.from_numpy(color_grid)
+    color_grid = torch.from_numpy(color_grid / 256)
     return color_grid
 
 
@@ -132,7 +131,44 @@ def save_sample(txt_file, occ_grid):
     occ_grid = occ_grid[0]  # <- removes the channel dimension
     occ_grid = occ_grid.cpu().numpy().transpose(2, 1, 0)
 
-    positions = np.where(occ_grid >= 0.9)
+    positions = np.where(occ_grid >= 0.5)
+    with open(txt_file, "w") as f:
+        for i, j, k in zip(*positions):
+            color = np.array([169, 0, 255])
+            data = np.column_stack((i, j, k, color[0], color[1], color[2]))
+            np.savetxt(f, data, fmt='%d %d %d %d %d %d', delimiter=' ')
+
+
+def load_df(file):
+    """
+        loads the df grid from the file and returns it as a pytorch tensor
+        :param input_file: File storing df values
+        :return: df grid as pytorch tensor (shape: [1,D,H,W])
+    """
+    with open(file, 'rb') as f:
+        dims = np.fromfile(f, dtype=np.int32, count=3)
+        res = np.fromfile(f, dtype=np.float32, count=1)
+        grid2world = np.fromfile(f, dtype=np.float32, count=16)
+
+        n_size = dims[0] * dims[1] * dims[2]
+        df = np.fromfile(f, dtype=np.float32, count=n_size)
+
+    df = np.asarray(df).reshape(dims[0], dims[1], dims[2])
+    df = torch.from_numpy(df).unsqueeze(0)  # <- adds channel dimension
+
+    return df
+
+
+def save_df(txt_file, df_grid):
+    """
+        saves the network output in a ply file for visualization
+        :param file: file in which to store the output produced by network
+        :param df_grid: network output
+        """
+    df_grid = torch.transpose(df_grid[0], 0, 2)  # <- removes the channel dimension
+    mask = torch.gt(df_grid, 0.0) & torch.le(df_grid, 1.0)
+
+    positions = np.where(mask.cpu().numpy())
     with open(txt_file, "w") as f:
         for i, j, k in zip(*positions):
             color = np.array([169, 0, 255])
@@ -141,7 +177,7 @@ def save_sample(txt_file, occ_grid):
 
 
 class DatasetLoad(torch.utils.data.Dataset):
-    def __init__(self, train_list, n_max_samples=-1):
+    def __init__(self, train_list, n_max_samples=-1, transform=None):
         """
         dataset loader class -> reads the input and gt txt files corresponding to synset_id and model_id
         and gives the occupancy grids for input and target
@@ -150,6 +186,7 @@ class DatasetLoad(torch.utils.data.Dataset):
         """
         self._train_list = train_list
         self.n_samples = len(train_list)
+        self.transform = transform
         if n_max_samples != -1:
             self.n_samples = min(self.n_samples, n_max_samples)
 
@@ -162,20 +199,19 @@ class DatasetLoad(torch.utils.data.Dataset):
 
         params = JSONHelper.read("../parameters.json")
 
+        input_img_file = params["shapenet_renderings"] + synset_id + "/" + model_id + "/color/color00.png"
+        gt_df_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "__0__.df"
         input_occ_file = params["shapenet_raytraced"] + synset_id + "/" + model_id + ".txt"
         gt_occ_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "__0__.txt"
-        gt_imgs_folder = params["shapenet_renderings"] + synset_id + "/" + model_id + "/color"
-        poses_folder = params["shapenet_renderings"] + synset_id + "/" + model_id + "/pose"
+        # gt_imgs_folder = params["shapenet_renderings"] + synset_id + "/" + model_id + "/color"
+        # poses_folder = params["shapenet_renderings"] + synset_id + "/" + model_id + "/pose"
 
+        input_img = torch.reshape(load_img(input_img_file), (1, config.render_img_height, config.render_img_width)).float()
+        df_gt = load_df(gt_df_file)
         occ_grid = load_sample(input_occ_file)
         occ_gt = load_sample(gt_occ_file)
-        imgs_gt = load_imgs(gt_imgs_folder)
-        poses = load_poses(poses_folder)
+        # imgs_gt = load_imgs(gt_imgs_folder)
+        # poses = load_poses(poses_folder)
 
-        return {'occ_grid': occ_grid, 'occ_gt': occ_gt, 'imgs_gt': imgs_gt, 'poses': poses}
-
-
-if __name__ == '__main__':
-    txt_file = "./../../../Assets/shapenet-raytraced/04379243/142060f848466cad97ef9a13efb5e3f7.txt"
-    occ_grid = load_sample(txt_file)
-    print(occ_grid.shape)
+        return {'occ_grid': occ_grid, 'occ_gt': occ_gt, 'df_gt': df_gt, 'img': input_img}
+        # return {'occ_grid': occ_grid, 'occ_gt': occ_gt, 'df_gt': df_gt, 'img': input_img, 'imgs_gt': imgs_gt, 'poses': poses}
