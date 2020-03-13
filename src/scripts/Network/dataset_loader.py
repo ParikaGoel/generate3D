@@ -11,34 +11,41 @@ import JSONHelper
 import numpy as np
 
 
-def load_imgs(folder):
+def load_imgs(folder, color = False):
     '''
     :param folder: folder path containing rendered images
     :return:
         returns a tensor of shape [N x (height * width)]
+        or [N x (3 * height * width)]
         each row in tensor contains flattened image tensor
     '''
     imgs = []
     for filename in sorted(os.listdir(folder)):
-        img = load_img(os.path.join(folder, filename))
+        img = load_img(os.path.join(folder, filename), color)
         imgs.append(img)
     imgs = torch.stack(imgs)
     return imgs
 
 
-def load_img(png_file):
+def load_img(png_file, color = False):
     """
-    Loads the image from the png file and preprocess it to get the binary mask
+    Loads the image from the png file
+    If color is False, preprocess it to get the binary mask
     binary mask -> h x w grid containing values (0,1)
     :param png_file: Image png file
     :return:
-        image silhouette as pytorch tensor (shape: [H, W]) (type: float)
+        image silhouette pytorch tensor (shape: [H * W]) (type: float) if color is False
+        color image pytorch tensor (shape: [H * W * 3]) (type: float) if color is True
     """
     img = imageio.imread(png_file)
-    img = img[:, :, 0]  # we dont need the color values for binary mask
-    img[img < 255] = 1
-    img[img == 255] = 0
-    # img will contain the occupancy of the pixels now : 1 refers to object in the pixel
+
+    if not color:
+        img = img[:, :, 0]  # we dont need the color values for binary mask
+
+        # img will contain the occupancy of the pixels now : 1 refers to object in the pixel
+        img[img < 255] = 1
+        img[img == 255] = 0
+
     img = torch.flatten(torch.from_numpy(img))
     return img
 
@@ -210,7 +217,7 @@ class DatasetLoad(torch.utils.data.Dataset):
         df_gt = load_df(gt_df_file)
         occ_grid = load_sample(input_occ_file)
         occ_gt = load_sample(gt_occ_file)
-        # imgs_gt = load_imgs(gt_imgs_folder)
+        # imgs_gt = load_imgs(gt_imgs_folder, False)
         # poses = load_poses(poses_folder)
 
         return {'occ_grid': occ_grid, 'occ_gt': occ_gt, 'df_gt': df_gt, 'img': input_img}

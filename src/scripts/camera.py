@@ -68,8 +68,8 @@ class Camera:
 
             self._focal[0] = data['intrinsic']['fx']
             self._focal[1] = data['intrinsic']['fy']
-            self._znear = data['intrinsic']['z_near']
-            self._zfar = data['intrinsic']['z_far']
+            self._znear = 0.5 #data['intrinsic']['z_near']
+            self._zfar = 1.5 #data['intrinsic']['z_far']
             self._resolution = [(c * 2) for c in self._center]
 
             # set the intrinsic matrix
