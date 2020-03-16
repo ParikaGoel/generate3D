@@ -48,7 +48,7 @@ class ProjectionHelper:
         self.intrinsic = make_intrinsic().to(self.device)
         self.depth_min = config.znear
         self.depth_max = config.zfar
-        self.image_dims = [config.render_img_width, config.render_img_height]
+        self.image_dims = [config.img_width, config.img_height]
         self.volume_dims = [config.vox_dim, config.vox_dim, config.vox_dim]
         self.voxel_size = 1 / config.vox_dim
 

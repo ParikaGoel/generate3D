@@ -1,8 +1,8 @@
 depth_factor = 100
 
 # rendering images
-render_img_width = 512
-render_img_height = 512
+img_width = 512
+img_height = 512
 znear = 0.4
 zfar = 4.0
 focal = 525.0

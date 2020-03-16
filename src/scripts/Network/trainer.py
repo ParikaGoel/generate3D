@@ -14,7 +14,8 @@ from torch.utils.tensorboard import SummaryWriter
 
 params = JSONHelper.read("../parameters.json")
 
-synset_id = '03001627'
+synset_id = '04379243'
+
 
 def create_summary_writers(train_writer_path, val_writer_path):
     """
@@ -41,7 +42,7 @@ class Trainer:
         self.model = Net(1, 1).to(device)
 
     def loss_and_optimizer(self):
-        self.criterion = losses.bce
+        self.criterion = losses.l1
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
 
     def train(self, epoch):
@@ -50,7 +51,7 @@ class Trainer:
 
         for idx, sample in enumerate(self.dataloader_train):
             input = sample['occ_grid'].to(self.device)
-            target = sample['occ_gt'].to(self.device)
+            target = sample['df_gt'].to(self.device)
 
             # zero the parameter gradients
             self.optimizer.zero_grad()
@@ -65,7 +66,7 @@ class Trainer:
             # ===================log========================
             batch_loss += loss.item()
 
-            if (idx+1)%10 == 0:
+            if (idx + 1) % 10 == 0:
                 print('Training : [%d : %5d] loss: %.3f' % (epoch + 1, idx + 1, loss.item()))
 
         train_loss = batch_loss / (idx + 1)
@@ -78,7 +79,7 @@ class Trainer:
         with torch.no_grad():
             for idx, sample in enumerate(self.dataloader_val):
                 input = sample['occ_grid'].to(self.device)
-                target = sample['occ_gt'].to(self.device)
+                target = sample['df_gt'].to(self.device)
 
                 # ===================forward=====================
                 output = self.model(input)
@@ -101,9 +102,10 @@ class Trainer:
             val_writer.add_scalar("loss", val_loss, epoch + 1)
 
             if val_loss < prev_val_loss:
-                print("Save model on epoch %02d ; val loss: %.3f ; prev val loss: %.3f " % (epoch, val_loss, prev_val_loss))
+                print("Save model on epoch %02d ; val loss: %.3f ; prev val loss: %.3f " % (
+                epoch, val_loss, prev_val_loss))
                 torch.save(self.model.state_dict(),
-                           params["network_output"] + synset_id + "/saved_models/occ.pth")
+                           params["network_output"] + synset_id + "/saved_models/df.pth")
                 prev_val_loss = val_loss
 
         print("Finished training")
@@ -127,8 +129,8 @@ if __name__ == '__main__':
     print("Validation data size: ", len(val_list))
     print("Device: ", device)
 
-    train_writer_path = params["network_output"] + synset_id + "/logs/logs_occ/train/"
-    val_writer_path = params["network_output"] + synset_id + "/logs/logs_occ/val/"
+    train_writer_path = params["network_output"] + synset_id + "/logs/logs_df/train/"
+    val_writer_path = params["network_output"] + synset_id + "/logs/logs_df/val/"
 
     pathlib.Path(train_writer_path).mkdir(parents=True, exist_ok=True)
     pathlib.Path(val_writer_path).mkdir(parents=True, exist_ok=True)

@@ -206,19 +206,19 @@ class DatasetLoad(torch.utils.data.Dataset):
 
         params = JSONHelper.read("../parameters.json")
 
-        input_img_file = params["shapenet_renderings"] + synset_id + "/" + model_id + "/color/color00.png"
+        # input_img_file = params["shapenet_renderings"] + synset_id + "/" + model_id + "/color/color00.png"
         gt_df_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "__0__.df"
         input_occ_file = params["shapenet_raytraced"] + synset_id + "/" + model_id + ".txt"
-        gt_occ_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "__0__.txt"
+        # gt_occ_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "__0__.txt"
         # gt_imgs_folder = params["shapenet_renderings"] + synset_id + "/" + model_id + "/color"
         # poses_folder = params["shapenet_renderings"] + synset_id + "/" + model_id + "/pose"
 
-        input_img = torch.reshape(load_img(input_img_file), (1, config.render_img_height, config.render_img_width)).float()
+        # input_img = torch.reshape(load_img(input_img_file), (1, config.render_img_height, config.render_img_width)).float()
         df_gt = load_df(gt_df_file)
         occ_grid = load_sample(input_occ_file)
-        occ_gt = load_sample(gt_occ_file)
+        # occ_gt = load_sample(gt_occ_file)
         # imgs_gt = load_imgs(gt_imgs_folder, False)
         # poses = load_poses(poses_folder)
 
-        return {'occ_grid': occ_grid, 'occ_gt': occ_gt, 'df_gt': df_gt, 'img': input_img}
+        return {'occ_grid': occ_grid, 'df_gt': df_gt}
         # return {'occ_grid': occ_grid, 'occ_gt': occ_gt, 'df_gt': df_gt, 'img': input_img, 'imgs_gt': imgs_gt, 'poses': poses}

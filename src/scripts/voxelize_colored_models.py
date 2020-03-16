@@ -16,8 +16,8 @@ def make_intrinsic():
     intrinsic = torch.eye(4)
     intrinsic[0][0] = config.focal
     intrinsic[1][1] = config.focal
-    intrinsic[0][2] = config.render_img_width / 2
-    intrinsic[1][2] = config.render_img_height / 2
+    intrinsic[0][2] = config.img_width / 2
+    intrinsic[1][2] = config.img_height / 2
     return intrinsic
 
 def make_world_to_grid():
@@ -26,48 +26,6 @@ def make_world_to_grid():
     world_to_grid *= config.vox_dim
     world_to_grid[3][3] = 1.0
     return world_to_grid
-
-
-def compute_index_mapping(world_to_camera, grid_to_world, device):
-    lin_ind_volume = torch.arange(0, config.vox_dim * config.vox_dim * config.vox_dim,
-                                  out=torch.LongTensor()).to(device)
-    grid_coords = grid_to_world.new(4, lin_ind_volume.size(0)).int()
-    grid_coords[2] = lin_ind_volume / (config.vox_dim * config.vox_dim)
-    tmp = lin_ind_volume - (grid_coords[2] * config.vox_dim * config.vox_dim).long()
-    grid_coords[1] = tmp / config.vox_dim
-    grid_coords[0] = torch.remainder(tmp, config.vox_dim)
-    grid_coords[3].fill_(1)
-
-    # cube vertex coords
-    vertex_coords = torch.tensor([[0, 1, 0, 1, 0, 1, 0, 1],
-                                  [0, 0, 1, 1, 0, 0, 1, 1],
-                                  [0, 0, 0, 0, 1, 1, 1, 1],
-                                  [0, 0, 0, 0, 0, 0, 0, 0]]).to(device)
-
-    corners = grid_coords.unsqueeze(0).repeat(8, 1, 1)
-    for i in range(8):
-        corners[i] = corners[i] + vertex_coords[:, i, None]
-
-    # transform to current frame
-    camera_coords = torch.matmul(world_to_camera, torch.matmul(grid_to_world, corners.float()))
-
-    # project into image
-    intrinsic = make_intrinsic().to(device)
-    p = camera_coords.clone()
-    for i in range(8):
-        p[i, 1, :] = -p[i, 1, :]  # perspective projection flips the image in y- direction
-        p[i, 0] = (p[i, 0] * intrinsic[0][0]) / torch.abs(p[i, 2]) + intrinsic[0][2]
-        p[i, 1] = (p[i, 1] * intrinsic[1][1]) / torch.abs(p[i, 2]) + intrinsic[1][2]
-    p = torch.round(p).long()
-
-    p = torch.clamp(p, min=0, max=511)
-    index_map = p.new(4, p.size(2))
-    index_map[:2, :] = torch.min(p, dim=0).values[0:2, :]
-    index_map[2:, :] = torch.max(p, dim=0).values[0:2, :]
-
-    lin_index_map = torch.flatten(index_map, start_dim=0, end_dim=-1)
-
-    return lin_index_map
 
 
 def save_vox_as_txt(txt_file, voxel_grid, occ_grid=None):
@@ -87,87 +45,137 @@ def save_vox_as_txt(txt_file, voxel_grid, occ_grid=None):
             np.savetxt(f, data, fmt='%d %d %d %d %d %d', delimiter=' ')
 
 
-def raymarch(voxel_grid, occ_grid, color_file, depth_file, pose_file):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    occ_grid = torch.flatten(occ_grid)
+def compute_index_map(device, occ_grid, world_to_camera):
+    index_map = torch.empty((config.img_height, config.img_width), dtype=int).fill_(-1).to(device)
     grid_to_world = torch.inverse(make_world_to_grid()).to(device)
+    intrinsic = make_intrinsic().to(device)
 
-    im = Image.open(color_file)
-    color = torch.from_numpy(np.array(im)).float().to(device)
+    occ = torch.flatten(occ_grid, start_dim=0, end_dim=-1)
+    occ_mask = torch.eq(occ, 1)
+
+    lin_ind_volume = torch.arange(0, config.vox_dim * config.vox_dim * config.vox_dim,
+                                  out=torch.LongTensor()).to(device)
+    lin_ind_volume = lin_ind_volume[occ_mask]
+    grid_coords = grid_to_world.new(4, lin_ind_volume.size(0))
+    grid_coords[2] = lin_ind_volume / (config.vox_dim * config.vox_dim)
+    tmp = lin_ind_volume - (grid_coords[2] * config.vox_dim * config.vox_dim).long()
+    grid_coords[1] = tmp / config.vox_dim
+    grid_coords[0] = torch.remainder(tmp, config.vox_dim)
+    grid_coords[3].fill_(1)
+
+    # cube vertex coords
+    vertex_coords = torch.tensor([[0, 1, 0, 1, 0, 1, 0, 1],
+                                  [0, 0, 1, 1, 0, 0, 1, 1],
+                                  [0, 0, 0, 0, 1, 1, 1, 1],
+                                  [0, 0, 0, 0, 0, 0, 0, 0]]).to(device)
+    vertex_coords = torch.transpose(vertex_coords, 0, 1)
+
+    corners = torch.stack([grid_coords.int() + vertex_coords[i][:, None] for i in range(8)])
+
+    # transform to current frame
+    camera_coords = torch.matmul(world_to_camera, torch.matmul(grid_to_world, corners.float()))
+    depth = camera_coords.new(camera_coords.size(2) + 1)
+    depth[:-1] = torch.min(torch.abs(camera_coords[:, 2, :]), dim=0).values
+    depth[-1] = torch.max(depth[:-1]) + 1
+
+    # project into image
+    p = camera_coords.clone()
+    p[:, 1, :] = -p[:, 1, :]  # perspective projection flips the image in y- direction
+    p[:, 0] = (p[:, 0] * intrinsic[0][0]) / torch.abs(p[:, 2]) + intrinsic[0][2]
+    p[:, 1] = (p[:, 1] * intrinsic[1][1]) / torch.abs(p[:, 2]) + intrinsic[1][2]
+    p = torch.round(p).long()[:, 0:2, :]
+
+    p = torch.clamp(p, min=0, max=511)
+    pmin = torch.min(p, dim=0).values
+    pmax = torch.max(p, dim=0).values
+
+    index_map = index_map.fill_(lin_ind_volume.size(0))
+
+    for i in range(lin_ind_volume.size(0)):
+        vals = index_map[pmin[1, i]:pmax[1, i], pmin[0, i]:pmax[0, i]]
+        vals = torch.flatten(vals)
+        depth_vals = torch.index_select(depth, 0, vals)
+        mask = torch.gt(depth_vals, depth[i])
+        vals[mask] = i
+        vals = vals.reshape((pmax[1, i] - pmin[1, i], pmax[0, i] - pmin[0, i]))
+        index_map[pmin[1, i]:pmax[1, i], pmin[0, i]:pmax[0, i]] = vals
+
+    lin_index_map = torch.flatten(index_map, start_dim=0, end_dim=-1)
+    invalid_mask = torch.eq(lin_index_map, lin_ind_volume.size(0))
+    lin_index_map[invalid_mask] = 0
+    lin_index_map = torch.index_select(lin_ind_volume, 0, lin_index_map)
+    lin_index_map[invalid_mask] = -1
+
+    return lin_index_map
+
+
+def raymarch(device, color_grid, occ_grid, color_file, depth_file, pose_file):
+    pose = loader.load_pose(pose_file).to(device)
+    img = loader.load_img(color_file, color=True).to(device)
+    img = torch.reshape(img, (-1, 3)).float()
 
     depth_im = Image.open(depth_file)
-    depth = torch.from_numpy(np.array(depth_im)).float().to(device)
+    depth = torch.flatten(torch.from_numpy(np.array(depth_im))).float()
 
-    pose = loader.load_pose(pose_file).to(device)
-    index_map = compute_index_mapping(pose, grid_to_world, device).to(device)
+    invalid_depth = torch.eq(depth, 0)
+    img[invalid_depth] = 0
 
-    index_map = index_map.reshape((4, -1))
+    index_map = compute_index_map(device, occ_grid, pose).long().to(device)
 
-    for i in range(voxel_grid.size(0)):
-        if occ_grid[i] == 1:
-            c = color[index_map[1, i]:index_map[3, i], index_map[0, i]:index_map[2, i]]
-            m = torch.gt(depth[index_map[1, i]:index_map[3, i], index_map[0, i]:index_map[2, i]], 0)
-            if m.any():
-                valid_colors = c[m]
-                mean_color = torch.mean(valid_colors, axis=0)
-                voxel_grid[i] = mean_color
+    grid = torch.empty(((config.vox_dim * config.vox_dim * config.vox_dim) + 1, 3),
+                       dtype=torch.float).fill_(0).to(device)
 
-    voxel_grid = torch.ceil(voxel_grid)
-    # voxel_grid = torch.ceil(voxel_grid).cpu().numpy().astype(np.uint16)
+    invalid_mask = torch.eq(index_map, -1)
+    index_map[invalid_mask] = grid.size(0) - 1
 
-    return voxel_grid
+    indices, indices_count = torch.unique(index_map, return_counts=True)
+    grid.index_add_(0, index_map, img)
+    grid[indices] = grid[indices] / indices_count[:, None]
+    grid[indices] = torch.clamp(grid[indices], max=255)
+
+    color_grid[indices] = grid[indices]
+
+    return color_grid
 
 
-def raymarch_n_views(color_img_dir, depth_img_dir, pose_dir, occ_file):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+def raymarch_n_views(device, color_img_dir, depth_dir, pose_dir, occ_file):
     img_files = sorted(os.listdir(color_img_dir))
-    depth_files = sorted(os.listdir(depth_img_dir))
+    depth_files = sorted(os.listdir(depth_dir))
     pose_files = sorted(os.listdir(pose_dir))
     occ_grid = loader.load_sample(occ_file)[0]
 
-    voxel_grid = torch.empty((config.vox_dim * config.vox_dim * config.vox_dim, 3),
+    color_grid = torch.empty(((config.vox_dim * config.vox_dim * config.vox_dim)+1, 3),
                              dtype=torch.float).fill_(256).to(device)
 
     for i in range(len(img_files)):
-        voxel_grid = raymarch(voxel_grid, occ_grid, color_img_dir + img_files[i], depth_img_dir + depth_files[i],
-                              pose_dir + pose_files[i])
+        color_grid = raymarch(device, color_grid, occ_grid, color_img_dir + img_files[i], depth_dir + depth_files[i], pose_dir + pose_files[i])
 
-    # voxel_grid = raymarch(voxel_grid, occ_grid, color_img_dir + img_files[0], depth_img_dir + depth_files[0],
-    #                       pose_dir + pose_files[0])
-    # grid = torch.stack([raymarch(voxel_grid, occ_grid, color_img_dir+img_files[i], depth_img_dir+depth_files[i], pose_dir+pose_files[i]) for i in range(len(img_files))])
-    #
-    # voxel_grid = torch.empty((config.vox_dim * config.vox_dim * config.vox_dim, 3),
-    #                          dtype=torch.float).fill_(256).to(device)
-    #
-    # for i in range(grid.size(1)):
-    #     colors = grid[:,i,:]
-    #     mask = torch.lt(colors, 256)
-    #     if mask.any():
-    #         voxel_grid[i] = torch.max(colors[mask].reshape(-1,3), axis=0).values
-
-    # voxel_grid = torch.ceil(voxel_grid)
-
-    return voxel_grid
+    color_grid = color_grid[:-1, :]
+    return color_grid
 
 
-def voxelize(synset_id, model_id):
-    color_img_dir = params["shapenet_renderings"] + synset_id + "/" + model_id + "/color/"
-    depth_img_dir = params["shapenet_renderings"] + synset_id + "/" + model_id + "/depth/"
-    pose_dir = params["shapenet_renderings"] + synset_id + "/" + model_id + "/pose/"
+def voxelize(device, synset_id, model_id):
+    color_img_dir = params["shapenet_renderings"] + synset_id + "/" + model_id + "/test/color/"
+    depth_img_dir = params["shapenet_renderings"] + synset_id + "/" + model_id + "/test/depth/"
+    pose_dir = params["shapenet_renderings"] + synset_id + "/" + model_id + "/test/pose/"
     occ_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "__0__.txt"
 
-    grid = raymarch_n_views(color_img_dir, depth_img_dir, pose_dir, occ_file)
+    color_grid = raymarch_n_views(device, color_img_dir, depth_img_dir, pose_dir, occ_file)
 
     txt_file = params["network_output"] + "vox.txt"
     ply_file = params["network_output"] + "vox.ply"
-    save_vox_as_txt(txt_file, grid)
+    save_vox_as_txt(txt_file, color_grid)
     voxel_grid.txt_to_mesh(txt_file, ply_file)
 
 
 if __name__ == '__main__':
-    synset_id = '03001627'
-    model_id = '1a6f615e8b1b5ae4dbbc9440457e303e'
+    # synset_id = '03001627'
+    # model_id = '1a6f615e8b1b5ae4dbbc9440457e303e'
 
-    voxelize(synset_id, model_id)
+    synset_id = '04379243'
+    model_id = '1a00aa6b75362cc5b324368d54a7416f'
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    voxelize(device, synset_id, model_id)
 
 
