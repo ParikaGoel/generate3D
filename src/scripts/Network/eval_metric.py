@@ -31,8 +31,8 @@ def iou_df(pred, target):
     pred = pred.view(-1)
     target = target.view(-1)
 
-    pred_mask = torch.gt(pred, 0.0) & torch.le(pred, 1.0)
-    target_mask = torch.gt(target, 0.0) & torch.le(target, 1.0)
+    pred_mask = torch.gt(pred, 0.0) & torch.le(pred, 3.0)
+    target_mask = torch.gt(target, 0.0) & torch.le(target, 3.0)
 
     intersection = pred_mask & target_mask
     intersection_count = (intersection[intersection == True]).long().sum().data.cpu().item()

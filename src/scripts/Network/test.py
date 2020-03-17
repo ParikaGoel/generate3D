@@ -5,6 +5,9 @@ import dataset_loader as loader
 
 
 if __name__ == '__main__':
-    color_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-renderings/04379243/fff7f07d1c4042f8a946c24c4f9fb58e/color/color00.png"
-    img = torch.reshape(loader.load_img(color_file),(1,512,512)).float()
-    print(img.shape)
+    predicted = "/home/parika/WorkingDir/complete3D/Assets_remote/output-network/04379243/predicted_test_output/best_model.npy"
+    gt = "/home/parika/WorkingDir/complete3D/Assets_remote/output-network/04379243/predicted_test_output/gt.npy"
+
+    color = np.array([169, 169, 0])
+    loader.df_to_mesh(predicted, 4.0, color)
+    loader.df_to_mesh(gt)

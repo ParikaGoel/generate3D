@@ -2,7 +2,7 @@ import torch
 from torch import nn
 
 
-class DFNet(nn.Module):
+class Net2d3d(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(DFNet, self).__init__()
 
@@ -35,6 +35,48 @@ class DFNet(nn.Module):
         x = self.relu(self.fc(x))
 
         x = torch.reshape(x, (n_batch, 128, 4, 4, 4))
+
+        # Decoder Part : [128, 4, 4, 4] -> [1, 32, 32, 32]
+        x = self.relu(self.deconv1(x))
+        x = self.relu(self.deconv2(x))
+        x = self.deconv3(x)
+
+        return x
+
+
+class DeeperNet(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(DeeperNet, self).__init__()
+
+        # Encoder Part
+        self.conv1 = nn.Conv3d(in_channels, 32, kernel_size=3, stride=2, padding=1)  # try stride of 2
+        self.conv2 = nn.Conv3d(32, 64, kernel_size=3, stride=2, padding=1)
+        self.conv3 = nn.Conv3d(64, 128, kernel_size=3, stride=2, padding=1)
+        self.conv4 = nn.Conv3d(128, 256, kernel_size=3, stride=2, padding=1)
+        self.conv5 = nn.Conv3d(256, 256, kernel_size=3, stride=2, padding=1)
+        self.conv6 = nn.Conv3d(256, 256, kernel_size=3, stride=2, padding=1)
+        self.relu = nn.ReLU(inplace=True)
+
+        # Decoder Part
+        self.deconv1 = nn.ConvTranspose3d(128, 64, kernel_size=3, stride=3, padding=2)
+        self.deconv2 = nn.ConvTranspose3d(64, 32, kernel_size=3, stride=2, padding=1, output_padding=1)
+        self.deconv3 = nn.ConvTranspose3d(32, out_channels, kernel_size=3, stride=2, padding=1, output_padding=1)
+
+    def forward(self, x):
+        # Encoder Part : [1, 32, 32, 32] -> [128, 4, 4, 4]
+        print(x.shape)
+        x = self.relu(self.conv1(x))
+        print(x.shape)
+        x = self.relu(self.conv2(x))
+        print(x.shape)
+        x = self.relu(self.conv3(x))
+        print(x.shape)
+        x = self.relu(self.conv4(x))
+        print(x.shape)
+        x = self.relu(self.conv5(x))
+        print(x.shape)
+        x = self.relu(self.conv6(x))
+        print(x.shape)
 
         # Decoder Part : [128, 4, 4, 4] -> [1, 32, 32, 32]
         x = self.relu(self.deconv1(x))

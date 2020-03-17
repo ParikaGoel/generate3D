@@ -8,6 +8,7 @@ import torch
 import config
 import imageio
 import JSONHelper
+import voxel_grid
 import numpy as np
 
 
@@ -166,21 +167,33 @@ def load_df(file):
     return df
 
 
-def save_df(txt_file, df_grid):
+def df_to_mesh(file, trunc_dist=1.0, color=None):
+    df_grid = torch.from_numpy(np.load(file))
+    mask = torch.gt(df_grid, 0.0) & torch.lt(df_grid, trunc_dist)
+    positions = np.where(mask.cpu().numpy())
+
+    grid_lst = []
+
+    if color is None:
+        color = np.array([169, 0, 255])
+
+    for i, j, k in zip(*positions):
+        data = np.array((i, j, k, color[0], color[1], color[2]))
+        grid_lst.append(data)
+
+    ply_file = file[:file.rfind('.')] + '.ply'
+    voxel_grid.grid_to_mesh(grid_lst, ply_file)
+
+
+def save_df(filename, df_grid):
     """
         saves the network output in a ply file for visualization
         :param file: file in which to store the output produced by network
         :param df_grid: network output
         """
     df_grid = torch.transpose(df_grid[0], 0, 2)  # <- removes the channel dimension
-    mask = torch.gt(df_grid, 0.0) & torch.le(df_grid, 1.0)
-
-    positions = np.where(mask.cpu().numpy())
-    with open(txt_file, "w") as f:
-        for i, j, k in zip(*positions):
-            color = np.array([169, 0, 255])
-            data = np.column_stack((i, j, k, color[0], color[1], color[2]))
-            np.savetxt(f, data, fmt='%d %d %d %d %d %d', delimiter=' ')
+    df_grid = df_grid.cpu().numpy()
+    np.save(filename, df_grid)
 
 
 class DatasetLoad(torch.utils.data.Dataset):
@@ -209,16 +222,16 @@ class DatasetLoad(torch.utils.data.Dataset):
         # input_img_file = params["shapenet_renderings"] + synset_id + "/" + model_id + "/color/color00.png"
         gt_df_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "__0__.df"
         input_occ_file = params["shapenet_raytraced"] + synset_id + "/" + model_id + ".txt"
-        # gt_occ_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "__0__.txt"
+        gt_occ_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "__0__.txt"
         # gt_imgs_folder = params["shapenet_renderings"] + synset_id + "/" + model_id + "/color"
         # poses_folder = params["shapenet_renderings"] + synset_id + "/" + model_id + "/pose"
 
         # input_img = torch.reshape(load_img(input_img_file), (1, config.render_img_height, config.render_img_width)).float()
         df_gt = load_df(gt_df_file)
         occ_grid = load_sample(input_occ_file)
-        # occ_gt = load_sample(gt_occ_file)
+        occ_gt = load_sample(gt_occ_file)
         # imgs_gt = load_imgs(gt_imgs_folder, False)
         # poses = load_poses(poses_folder)
 
-        return {'occ_grid': occ_grid, 'df_gt': df_gt}
+        return {'occ_grid': occ_grid, 'occ_gt': occ_gt, 'df_gt':df_gt}
         # return {'occ_grid': occ_grid, 'occ_gt': occ_gt, 'df_gt': df_gt, 'img': input_img, 'imgs_gt': imgs_gt, 'poses': poses}
