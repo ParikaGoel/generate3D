@@ -1,3 +1,4 @@
+import glob
 import trimesh
 import JSONHelper
 import numpy as np
@@ -14,13 +15,13 @@ def generate_sdf(synset_id, model_id):
 
 
 if __name__ == '__main__':
-    synset_lst = ["04379243"]
+    synset_lst = ["03001627"]
     failed_cases = {}
     file = params["shapenet_raytraced"] + "failed_cases.json"
 
     for synset_id in synset_lst:
         for f in glob.glob(params["shapenet"] + synset_id + "/*/models/model_normalized.obj"):
-            model_id = f.split("/", 10)[6]
+            model_id = f.split("/", 10)[8]
             print(synset_id, " : ", model_id)
 
             try:

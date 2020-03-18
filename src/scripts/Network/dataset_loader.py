@@ -147,6 +147,12 @@ def save_sample(txt_file, occ_grid):
             np.savetxt(f, data, fmt='%d %d %d %d %d %d', delimiter=' ')
 
 
+def load_sdf(file):
+    sdf_grid = torch.from_numpy(np.load(file))
+    sdf_grid = torch.transpose(sdf_grid, 0, 2).unsqueeze(0)
+    return sdf_grid
+
+
 def load_df(file):
     """
         loads the df grid from the file and returns it as a pytorch tensor
@@ -187,7 +193,7 @@ def df_to_mesh(file, trunc_dist=1.0, color=None):
 
 def save_df(filename, df_grid):
     """
-        saves the network output in a ply file for visualization
+        saves the network output in a .npy file
         :param file: file in which to store the output produced by network
         :param df_grid: network output
         """
@@ -221,6 +227,7 @@ class DatasetLoad(torch.utils.data.Dataset):
 
         # input_img_file = params["shapenet_renderings"] + synset_id + "/" + model_id + "/color/color00.png"
         gt_df_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "__0__.df"
+        gt_sdf_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + ".npy"
         input_occ_file = params["shapenet_raytraced"] + synset_id + "/" + model_id + ".txt"
         gt_occ_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "__0__.txt"
         # gt_imgs_folder = params["shapenet_renderings"] + synset_id + "/" + model_id + "/color"
@@ -230,8 +237,8 @@ class DatasetLoad(torch.utils.data.Dataset):
         df_gt = load_df(gt_df_file)
         occ_grid = load_sample(input_occ_file)
         occ_gt = load_sample(gt_occ_file)
+        sdf_gt = load_sdf(gt_sdf_file)
         # imgs_gt = load_imgs(gt_imgs_folder, False)
         # poses = load_poses(poses_folder)
 
-        return {'occ_grid': occ_grid, 'occ_gt': occ_gt, 'df_gt':df_gt}
-        # return {'occ_grid': occ_grid, 'occ_gt': occ_gt, 'df_gt': df_gt, 'img': input_img, 'imgs_gt': imgs_gt, 'poses': poses}
+        return {'occ_grid': occ_grid, 'occ_gt': occ_gt, 'df_gt':df_gt, 'sdf_gt':sdf_gt}
