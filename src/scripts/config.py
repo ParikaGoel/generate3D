@@ -18,4 +18,4 @@ batch_size = 32
 lr = 0.001
 momentum = 0.9
 weight_decay = 1e-5
-model_name = "model3D2"
+trunc_dist = 4

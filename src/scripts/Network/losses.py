@@ -9,6 +9,24 @@ def create_target_mask(target, weight):
     return weights
     
 
+def weighted_l1(device, output, target, trunc_dist, weight):
+    batch_size = target.shape[0]
+    assert (len(output.shape) > 1)
+
+    weights = torch.empty(target.shape).fill_(0)
+    mask = torch.gt(target, 0) & torch.le(target, trunc_dist)
+    weights[mask] = weight
+
+    criterion = torch.nn.L1Loss(reduction="none").to(device)
+    loss = criterion(output.float(), target.float())
+    loss = loss * weights
+    loss = torch.stack([torch.mean(loss[i]) for i in range(batch_size)])
+
+    loss = torch.mean(loss)
+
+    return loss
+
+
 def l1(output, target, device):
     batch_size = target.shape[0]
     assert (len(output.shape) > 1)
