@@ -39,10 +39,10 @@ class Trainer:
                                                    num_workers=2, drop_last=False)
 
         self.device = device
-        self.model = Net(1, 1).to(device)
+        self.model = Net3(1, 1).to(device)
 
     def loss_and_optimizer(self):
-        self.criterion = losses.l1
+        self.criterion = losses.bce
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
 
     def train(self, epoch):
@@ -51,7 +51,7 @@ class Trainer:
 
         for idx, sample in enumerate(self.dataloader_train):
             input = sample['occ_grid'].to(self.device)
-            target = sample['sdf_gt'].to(self.device)
+            target = sample['occ_gt'].to(self.device)
 
             # zero the parameter gradients
             self.optimizer.zero_grad()
@@ -79,7 +79,7 @@ class Trainer:
         with torch.no_grad():
             for idx, sample in enumerate(self.dataloader_val):
                 input = sample['occ_grid'].to(self.device)
-                target = sample['sdf_gt'].to(self.device)
+                target = sample['occ_gt'].to(self.device)
 
                 # ===================forward=====================
                 output = self.model(input)
@@ -105,7 +105,7 @@ class Trainer:
                 print("Save model on epoch %02d ; val loss: %.3f ; prev val loss: %.3f " % (
                 epoch, val_loss, prev_val_loss))
                 torch.save(self.model.state_dict(),
-                           params["network_output"] + synset_id + "/saved_models/sdf.pth")
+                           params["network_output"] + synset_id + "/saved_models/occ.pth")
                 prev_val_loss = val_loss
 
         print("Finished training")
@@ -129,8 +129,8 @@ if __name__ == '__main__':
     print("Validation data size: ", len(val_list))
     print("Device: ", device)
 
-    train_writer_path = params["network_output"] + synset_id + "/logs/logs_sdf/train/"
-    val_writer_path = params["network_output"] + synset_id + "/logs/logs_sdf/val/"
+    train_writer_path = params["network_output"] + synset_id + "/logs/logs_occ/train/"
+    val_writer_path = params["network_output"] + synset_id + "/logs/logs_occ/val/"
 
     pathlib.Path(train_writer_path).mkdir(parents=True, exist_ok=True)
     pathlib.Path(val_writer_path).mkdir(parents=True, exist_ok=True)
