@@ -4,8 +4,9 @@ sys.path.append('../.')
 import glob
 import torch
 import config
-import pathlib
 import losses
+import pathlib
+import datetime
 import JSONHelper
 from model import *
 import dataset_loader as dataloader
@@ -39,10 +40,10 @@ class Trainer:
                                                    num_workers=2, drop_last=False)
 
         self.device = device
-        self.model = Net2(1, 1).to(device)
+        self.model = Net4(1, 1).to(device)
 
     def loss_and_optimizer(self):
-        self.criterion = losses.weighted_l1
+        self.criterion = losses.l1
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
 
     def train(self, epoch):
@@ -58,8 +59,8 @@ class Trainer:
 
             # ===================forward=====================
             output = self.model(input)
-            # loss = self.criterion(output, target, self.device)
-            loss = self.criterion(self.device, output, target, config.trunc_dist, 2)
+            loss = self.criterion(output, target, self.device)
+            # loss = self.criterion(self.device, output, target, config.trunc_dist, 2)
             # ===================backward + optimize====================
             loss.backward()
             self.optimizer.step()
@@ -84,8 +85,8 @@ class Trainer:
 
                 # ===================forward=====================
                 output = self.model(input)
-                # loss = self.criterion(output, target, self.device)
-                loss = self.criterion(self.device, output, target, config.trunc_dist, 2)
+                loss = self.criterion(output, target, self.device)
+                # loss = self.criterion(self.device, output, target, config.trunc_dist, 2)
 
                 # ===================log========================
                 batch_loss += loss.item()
@@ -95,6 +96,8 @@ class Trainer:
     def start(self, train_writer, val_writer):
         print("Start training")
         prev_val_loss = 50000.0
+        saved_epoch = 0
+        start_time = datetime.datetime.now()
         for epoch in range(config.num_epochs):
             train_loss = self.train(epoch)
             val_loss = self.validate()
@@ -104,13 +107,17 @@ class Trainer:
             val_writer.add_scalar("loss", val_loss, epoch + 1)
 
             if val_loss < prev_val_loss:
+                saved_epoch = epoch
+                end_time = datetime.datetime.now()
                 print("Save model on epoch %02d ; val loss: %.3f ; prev val loss: %.3f " % (
                 epoch, val_loss, prev_val_loss))
                 torch.save(self.model.state_dict(),
-                           params["network_output"] + "Net2/" + synset_id + "/saved_models/tdf_wt2.pth")
+                           params["network_output"] + "Net4/" + synset_id + "/saved_models/df.pth")
                 prev_val_loss = val_loss
 
         print("Finished training")
+        print("Least val loss at epoch ", saved_epoch)
+        print("Time taken: ", start_time.strftime('%D:%H:%M:%S'), " to ", end_time.strftime('%D:%H:%M:%S'))
         train_writer.close()
         val_writer.close()
 
@@ -131,8 +138,8 @@ if __name__ == '__main__':
     print("Validation data size: ", len(val_list))
     print("Device: ", device)
 
-    train_writer_path = params["network_output"] + "Net2/" + synset_id + "/logs/logs_tdf_wt2/train/"
-    val_writer_path = params["network_output"] + "Net2/" + synset_id + "/logs/logs_tdf_wt2/val/"
+    train_writer_path = params["network_output"] + "Net4/" + synset_id + "/logs/logs_df/train/"
+    val_writer_path = params["network_output"] + "Net4/" + synset_id + "/logs/logs_df/val/"
 
     pathlib.Path(train_writer_path).mkdir(parents=True, exist_ok=True)
     pathlib.Path(val_writer_path).mkdir(parents=True, exist_ok=True)
