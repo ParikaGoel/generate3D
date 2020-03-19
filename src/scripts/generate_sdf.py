@@ -1,3 +1,4 @@
+import os
 import glob
 import trimesh
 import JSONHelper
@@ -9,13 +10,18 @@ params = JSONHelper.read("parameters.json")
 def generate_sdf(synset_id, model_id):
     obj_file = params["shapenet"] + synset_id + "/" + model_id + "/models/model_normalized.obj"
     sdf_file = params["shapenet_voxelized"] + synset_id + "/" + model_id
+
+    if os.path.exists(sdf_file+".npy"):
+        print(sdf_file, "exists. Skipping.....")
+        return
+    
     mesh = trimesh.load(obj_file)
     voxels = mesh_to_voxels(mesh, 32, pad=False)
     np.save(sdf_file, voxels)
 
 
 if __name__ == '__main__':
-    synset_lst = ["03001627"]
+    synset_lst = ["04379243"]
     failed_cases = {}
     file = params["shapenet_raytraced"] + "failed_cases.json"
 

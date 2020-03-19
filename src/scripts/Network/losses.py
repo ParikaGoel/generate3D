@@ -13,7 +13,7 @@ def weighted_l1(device, output, target, trunc_dist, weight):
     batch_size = target.shape[0]
     assert (len(output.shape) > 1)
 
-    weights = torch.empty(target.shape).fill_(0)
+    weights = torch.empty(target.shape).fill_(1).to(device)
     mask = torch.gt(target, 0) & torch.le(target, trunc_dist)
     weights[mask] = weight
 

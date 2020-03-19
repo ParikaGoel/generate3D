@@ -98,25 +98,16 @@ class Net3(nn.Module):
 
     def forward(self, x):
         # Encoder Part : [1, 32, 32, 32] -> [256, 1, 1, 1]
-        print(x.shape)
         x = self.relu(self.conv1(x))
-        print(x.shape)
         x = self.relu(self.conv2(x))
-        print(x.shape)
         x = self.relu(self.conv3(x))
-        print(x.shape)
         x = self.relu(self.conv4(x))
-        print(x.shape)
 
         # Decoder Part : [256, 1, 1, 1] -> [1, 32, 32, 32]
         x = self.relu(self.deconv1(x))
-        print(x.shape)
         x = self.relu(self.deconv2(x))
-        print(x.shape)
         x = self.relu(self.deconv3(x))
-        print(x.shape)
         x = self.deconv4(x)
-        print(x.shape)
 
         return x
 

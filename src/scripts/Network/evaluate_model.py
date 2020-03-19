@@ -22,7 +22,7 @@ class Tester:
         self.dataloader_test = torchdata.DataLoader(self.dataset_test, batch_size=1, shuffle=True,
                                                     num_workers=2, drop_last=False)
 
-        model = Net(1, 1)
+        model = Net3(1, 1)
 
         # load our saved model and use it to predict the class for test images
         model.load_state_dict(torch.load(saved_model, map_location=self.device))
@@ -36,11 +36,11 @@ class Tester:
         with torch.no_grad():
             for idx, sample in enumerate(self.dataloader_test):
                 input = sample['occ_grid'].to(self.device)
-                target = sample['occ_gt'].to(self.device)
+                target = sample['df_gt'].to(self.device)
 
                 output = model(input)
 
-                iou_val = metric.iou_occ(output, target)
+                iou_val = metric.iou_df(output, target, 1.0)
 
                 mean_iou = mean_iou + iou_val
 
@@ -74,8 +74,8 @@ if __name__ == '__main__':
 
     test_list = test_list[6740:]
 
-    out_folder = params["network_output"] + synset_id
-    saved_model = out_folder + "/saved_models/occ.pth"
+    out_folder = params["network_output"] + 'Net3/' + synset_id
+    saved_model = out_folder + "/saved_models/df.pth"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     print("Saved model: ", saved_model)
@@ -83,12 +83,12 @@ if __name__ == '__main__':
     tester = Tester(test_list, device)
     best_model, ground_truth = tester.test(saved_model)
 
-    dataloader.save_sample(out_folder + "/predicted_test_output/best_model.txt", best_model)
-    voxel_grid.txt_to_mesh(out_folder + "/predicted_test_output/best_model.txt", out_folder + "/predicted_test_output/best_model.ply")
+    dataloader.save_df(out_folder + "/predicted_test_output/best_model", best_model)
+    # loader.df_to_mesh(out_folder + "/predicted_test_output/best_model.npy", out_folder + "/predicted_test_output/best_model.ply")
 
-    dataloader.save_sample(out_folder + "/predicted_test_output/gt.txt", ground_truth)
-    voxel_grid.txt_to_mesh(out_folder + "/predicted_test_output/gt.txt",
-                           out_folder + "/predicted_test_output/gt.ply")
+    dataloader.save_df(out_folder + "/predicted_test_output/gt", ground_truth)
+    # loader.df_to_mesh(out_folder + "/predicted_test_output/gt.npy",
+    #                        out_folder + "/predicted_test_output/gt.ply")
         
 
         

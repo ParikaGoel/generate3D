@@ -39,7 +39,7 @@ class Trainer:
                                                    num_workers=2, drop_last=False)
 
         self.device = device
-        self.model = Net(1, 1).to(device)
+        self.model = Net2(1, 1).to(device)
 
     def loss_and_optimizer(self):
         self.criterion = losses.weighted_l1
@@ -58,6 +58,7 @@ class Trainer:
 
             # ===================forward=====================
             output = self.model(input)
+            # loss = self.criterion(output, target, self.device)
             loss = self.criterion(self.device, output, target, config.trunc_dist, 2)
             # ===================backward + optimize====================
             loss.backward()
@@ -83,7 +84,8 @@ class Trainer:
 
                 # ===================forward=====================
                 output = self.model(input)
-                loss = self.criterion(output, target, self.device)
+                # loss = self.criterion(output, target, self.device)
+                loss = self.criterion(self.device, output, target, config.trunc_dist, 2)
 
                 # ===================log========================
                 batch_loss += loss.item()
@@ -105,7 +107,7 @@ class Trainer:
                 print("Save model on epoch %02d ; val loss: %.3f ; prev val loss: %.3f " % (
                 epoch, val_loss, prev_val_loss))
                 torch.save(self.model.state_dict(),
-                           params["network_output"] + synset_id + "/saved_models/df_trunc.pth")
+                           params["network_output"] + "Net2/" + synset_id + "/saved_models/tdf_wt2.pth")
                 prev_val_loss = val_loss
 
         print("Finished training")
@@ -120,8 +122,8 @@ if __name__ == '__main__':
         model_id = f[f.rfind('/') + 1:f.rfind('.')]
         train_list.append({'synset_id': synset_id, 'model_id': model_id})
 
-    val_list = train_list[4340:5420]
-    train_list = train_list[:4340]
+    val_list = train_list[5400:6740]
+    train_list = train_list[:5400]
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -129,8 +131,8 @@ if __name__ == '__main__':
     print("Validation data size: ", len(val_list))
     print("Device: ", device)
 
-    train_writer_path = params["network_output"] + synset_id + "/logs/logs_df_trunc/train/"
-    val_writer_path = params["network_output"] + synset_id + "/logs/logs_df_trunc/val/"
+    train_writer_path = params["network_output"] + "Net2/" + synset_id + "/logs/logs_tdf_wt2/train/"
+    val_writer_path = params["network_output"] + "Net2/" + synset_id + "/logs/logs_tdf_wt2/val/"
 
     pathlib.Path(train_writer_path).mkdir(parents=True, exist_ok=True)
     pathlib.Path(val_writer_path).mkdir(parents=True, exist_ok=True)

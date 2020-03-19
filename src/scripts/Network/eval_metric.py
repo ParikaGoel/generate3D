@@ -21,7 +21,7 @@ def iou_occ(pred, target):
     return iou
 
 
-def iou_df(pred, target):
+def iou_df(pred, target, trunc_dist):
     """
     calculates the IOU metric (Intersection over Union) for a test prediction by the network
     :param pred: predicted output by the network
@@ -31,8 +31,8 @@ def iou_df(pred, target):
     pred = pred.view(-1)
     target = target.view(-1)
 
-    pred_mask = torch.gt(pred, 0.0) & torch.le(pred, 3.0)
-    target_mask = torch.gt(target, 0.0) & torch.le(target, 3.0)
+    pred_mask = torch.gt(pred, 0.0) & torch.le(pred, trunc_dist)
+    target_mask = torch.gt(target, 0.0) & torch.le(target, trunc_dist)
 
     intersection = pred_mask & target_mask
     intersection_count = (intersection[intersection == True]).long().sum().data.cpu().item()
