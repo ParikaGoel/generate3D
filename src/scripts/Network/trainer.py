@@ -40,7 +40,7 @@ class Trainer:
                                                    num_workers=2, drop_last=False)
 
         self.device = device
-        self.model = Net4(1, 1).to(device)
+        self.model = Net2(1, 1).to(device)
 
     def loss_and_optimizer(self):
         self.criterion = losses.l1
@@ -98,7 +98,7 @@ class Trainer:
         prev_val_loss = 50000.0
         saved_epoch = 0
         start_time = datetime.datetime.now()
-        for epoch in range(config.num_epochs):
+        for epoch in range(100):
             train_loss = self.train(epoch)
             val_loss = self.validate()
             print("Train loss: %.3f" % train_loss)
@@ -112,7 +112,7 @@ class Trainer:
                 print("Save model on epoch %02d ; val loss: %.3f ; prev val loss: %.3f " % (
                 epoch, val_loss, prev_val_loss))
                 torch.save(self.model.state_dict(),
-                           params["network_output"] + "Net4/" + synset_id + "/saved_models/df.pth")
+                           params["network_output"] + "Net2/" + synset_id + "/saved_models/tdf.pth")
                 prev_val_loss = val_loss
 
         print("Finished training")
@@ -129,8 +129,13 @@ if __name__ == '__main__':
         model_id = f[f.rfind('/') + 1:f.rfind('.')]
         train_list.append({'synset_id': synset_id, 'model_id': model_id})
 
-    val_list = train_list[5400:6740]
-    train_list = train_list[:5400]
+    # val_list = train_list[5400:6740]
+    # train_list = train_list[:5400]
+
+    val_list = train_list[:1]
+    train_list = train_list[:1]
+
+    print("Training list: ", train_list)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -138,8 +143,8 @@ if __name__ == '__main__':
     print("Validation data size: ", len(val_list))
     print("Device: ", device)
 
-    train_writer_path = params["network_output"] + "Net4/" + synset_id + "/logs/logs_df/train/"
-    val_writer_path = params["network_output"] + "Net4/" + synset_id + "/logs/logs_df/val/"
+    train_writer_path = params["network_output"] + "Net2/" + synset_id + "/logs/logs_tdf/train/"
+    val_writer_path = params["network_output"] + "Net2/" + synset_id + "/logs/logs_tdf/val/"
 
     pathlib.Path(train_writer_path).mkdir(parents=True, exist_ok=True)
     pathlib.Path(val_writer_path).mkdir(parents=True, exist_ok=True)

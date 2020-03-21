@@ -23,8 +23,8 @@ def make_intrinsic():
     intrinsic = torch.eye(4)
     intrinsic[0][0] = config.focal
     intrinsic[1][1] = config.focal
-    intrinsic[0][2] = config.render_img_width / 2
-    intrinsic[1][2] = config.render_img_height / 2
+    intrinsic[0][2] = config.img_width / 2
+    intrinsic[1][2] = config.img_height / 2
     return intrinsic
 
 
@@ -249,7 +249,7 @@ class Projection(Function):
 
     @staticmethod
     def visualize(grads, img_grad=True):
-        folder = "/home/parika/WorkingDir/complete3D/Assets/output-network/04379243/data/grads"
+        folder = "/home/parika/WorkingDir/complete3D/Assets/output-network/proj_net/04379243/data/grads"
         pathlib.Path(folder).mkdir(parents=True, exist_ok=True)
         projection_helper = ProjectionHelper()
 

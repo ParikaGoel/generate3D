@@ -51,9 +51,9 @@ class Trainer:
         self.model.train()
         batch_loss = 0.0
 
-        proj_img_out = os.path.join(params["network_output"], synset_id + "/data/proj_imgs/run_%02d"%epoch)
-        gt_img_out = os.path.join(params["network_output"], synset_id + "/data/gt_imgs/run_%02d"%epoch)
-        occ_out = os.path.join(params["network_output"], synset_id + "/data/occ/run_%02d"%epoch)
+        proj_img_out = os.path.join(params["network_output"], "proj_net/" + synset_id + "/data/proj_imgs/run_%02d"%epoch)
+        gt_img_out = os.path.join(params["network_output"], "proj_net/" + synset_id + "/data/gt_imgs/run_%02d"%epoch)
+        occ_out = os.path.join(params["network_output"], "proj_net/" + synset_id + "/data/occ/run_%02d"%epoch)
         pathlib.Path(proj_img_out).mkdir(parents=True, exist_ok=True)
         pathlib.Path(gt_img_out).mkdir(parents=True, exist_ok=True)
         pathlib.Path(occ_out).mkdir(parents=True, exist_ok=True)
@@ -108,7 +108,7 @@ class Trainer:
 
                 # ===================forward=====================
                 occ, proj_imgs = self.model(occ_input, poses)
-                loss = losses.proj_loss(proj_imgs, imgs_gt, 1, self.device)
+                loss = losses.proj_loss(proj_imgs, imgs_gt, self.device)
 
                 # ===================log========================
                 batch_loss += loss.item()
@@ -132,7 +132,7 @@ class Trainer:
             # Save the trained model
             if val_loss < prev_val_loss:
                 print("Saving the model at epoch %d" % epoch)
-                torch.save(self.model.state_dict(), params["network_output"] + synset_id + "/saved_models/proj.pth")
+                torch.save(self.model.state_dict(), params["network_output"] + "proj_net/" + synset_id + "/saved_models/proj.pth")
                 prev_val_loss = val_loss
 
         print("Finished training")
@@ -160,8 +160,8 @@ if __name__ == '__main__':
     print("Device: ", device)
     print("Training list: ", train_list)
 
-    train_writer_path = params["network_output"] + synset_id + "/logs/logs_proj/train/"
-    val_writer_path = params["network_output"] + synset_id + "/logs/logs_proj/val/"
+    train_writer_path = params["network_output"] + "proj_net/" + synset_id + "/logs/logs_proj/train/"
+    val_writer_path = params["network_output"] + "proj_net/" + synset_id + "/logs/logs_proj/val/"
 
     pathlib.Path(train_writer_path).mkdir(parents=True, exist_ok=True)
     pathlib.Path(val_writer_path).mkdir(parents=True, exist_ok=True)

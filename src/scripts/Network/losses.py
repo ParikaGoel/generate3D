@@ -99,7 +99,7 @@ def proj_loss(output, target, device):
     batch_size = target.shape[0]
     n_views = target.shape[1]
     # output = torch.nn.Sigmoid()(output)
-    criterion = torch.nn.BCELoss(reduction="none").to(device)
+    criterion = torch.nn.MSELoss(reduction="none").to(device)
     loss = criterion(output.float(), target.float())
     loss = torch.stack([torch.mean(torch.stack([torch.mean(loss[b,v]) for v in range(n_views)]))
                         for b in range(batch_size)])
