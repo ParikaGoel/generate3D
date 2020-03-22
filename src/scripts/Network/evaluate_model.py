@@ -19,7 +19,7 @@ class Tester:
         self.device = device
 
     def test(self, saved_model):
-        self.dataloader_test = torchdata.DataLoader(self.dataset_test, batch_size=1, shuffle=True,
+        self.dataloader_test = torchdata.DataLoader(self.dataset_test, batch_size=config.batch_size, shuffle=True,
                                                     num_workers=2, drop_last=False)
 
         model = Net2(1, 1)
@@ -36,7 +36,7 @@ class Tester:
         with torch.no_grad():
             for idx, sample in enumerate(self.dataloader_test):
                 input = sample['occ_grid'].to(self.device)
-                target = sample['sdf_gt'].to(self.device)
+                target = sample['df_gt'].to(self.device)
 
                 output = model(input)
 
@@ -66,14 +66,14 @@ class Tester:
 if __name__ == '__main__':
     params = JSONHelper.read('../parameters.json')
 
-    test_list = []
+    val_list = []
 
     for f in glob.glob(params["shapenet_raytraced"] + synset_id + "/*.txt"):
         model_id = f[f.rfind('/') + 1:f.rfind('.')]
-        test_list.append({'synset_id': synset_id, 'model_id': model_id})
+        val_list.append({'synset_id': synset_id, 'model_id': model_id})
 
     # test_list = test_list[6740:]
-    test_list = test_list[:1]
+    val_list = val_list[5400:6740]
 
     out_folder = params["network_output"] + 'Net2/' + synset_id
     saved_model = out_folder + "/saved_models/sdf.pth"
@@ -81,7 +81,7 @@ if __name__ == '__main__':
 
     print("Saved model: ", saved_model)
 
-    tester = Tester(test_list, device)
+    tester = Tester(val_list, device)
     best_model, ground_truth = tester.test(saved_model)
 
     dataloader.save_df(out_folder + "/predicted_test_output/best_model", best_model)
