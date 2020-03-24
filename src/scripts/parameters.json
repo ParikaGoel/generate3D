@@ -1,7 +1,7 @@
 {
-	"shapenet" : "/home/parika/WorkingDir/complete3D/Assets/shapenet-data/",
-	"shapenet_voxelized" : "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/",
-	"shapenet_renderings" : "/home/parika/WorkingDir/complete3D/Assets/shapenet-renderings/",
-	"shapenet_raytraced" : "/home/parika/WorkingDir/complete3D/Assets/shapenet-raytraced/",
-	"network_output" : "/home/parika/WorkingDir/complete3D/Assets/output-network/"
+	"shapenet" : "/home/parika/WorkingDir/complete3D/Assets_remote/shapenet-data/",
+	"shapenet_voxelized" : "/home/parika/WorkingDir/complete3D/Assets_remote/shapenet-voxelized-gt/",
+	"shapenet_renderings" : "/home/parika/WorkingDir/complete3D/Assets_remote/shapenet-renderings/",
+	"shapenet_raytraced" : "/home/parika/WorkingDir/complete3D/Assets_remote/shapenet-raytraced/",
+	"network_output" : "/home/parika/WorkingDir/complete3D/Assets_remote/output-network/"
 }

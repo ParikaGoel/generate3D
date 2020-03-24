@@ -75,7 +75,7 @@ def write_coff(file, vertices, faces):
 
 def write_ply(file, vertices, faces):
     """
-        Writes the given vertices and faces to OFF.
+        Writes the given vertices and faces to PLY.
 
         :param vertices: vertices as tuples of (x, y, z, r, g, b) coordinates
         :type vertices: [(float)]
@@ -107,18 +107,15 @@ def write_ply(file, vertices, faces):
         for vert in vertices:
             if len(vert) == 3:
                 color = (0, 169, 255)
-                fp.write('3 %f %f %f %d %d %d\n' % vert+color)
+                fp.write('%f %f %f %d %d %d\n' % vert+color)
             elif len(vert) == 6:
-                fp.write('3 %f %f %f %d %d %d\n' % vert)
+                fp.write('%f %f %f %d %d %d\n' % tuple(vert))
             else:
                 print('Error: Incorrect number of properties in a vertex. Expected 3 or 6 entries\n')
                 return
 
         for face in faces:
-            fp.write('3 %d %d %d\n' % face)
-
-        # add empty line to be sure
-        fp.write('\n')
+            fp.write('3 %d %d %d\n' % tuple(face))
 
 
 def read_off(file):

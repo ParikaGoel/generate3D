@@ -233,7 +233,7 @@ class DatasetLoad(torch.utils.data.Dataset):
 
         # input_img_file = params["shapenet_renderings"] + synset_id + "/" + model_id + "/color/color00.png"
         gt_df_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "__0__.df"
-        gt_sdf_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + ".npy"
+        # gt_sdf_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + ".npy"
         input_occ_file = params["shapenet_raytraced"] + synset_id + "/" + model_id + ".txt"
         gt_occ_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "__0__.txt"
         # gt_imgs_folder = params["shapenet_renderings"] + synset_id + "/" + model_id + "/color"
@@ -243,9 +243,9 @@ class DatasetLoad(torch.utils.data.Dataset):
         df_gt = load_df(gt_df_file)
         occ_grid = load_sample(input_occ_file)
         occ_gt = load_sample(gt_occ_file)
-        sdf_gt = load_sdf(gt_sdf_file)
+        # sdf_gt = load_sdf(gt_sdf_file)
         # imgs_gt = load_imgs(gt_imgs_folder, False)
         # poses = load_poses(poses_folder)
 
-        return {'occ_grid': occ_grid, 'occ_gt': occ_gt, 'df_gt':df_gt, 'sdf_gt':sdf_gt}
+        return {'name':model_id, 'occ_grid': occ_grid, 'occ_gt': occ_gt, 'df_gt':df_gt}
         # return {'occ_grid': occ_grid, 'imgs_gt': imgs_gt, 'poses':poses}

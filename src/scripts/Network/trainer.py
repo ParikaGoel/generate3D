@@ -1,12 +1,15 @@
 import sys
 
 sys.path.append('../.')
+import os
 import glob
 import torch
 import config
 import losses
+import random
 import pathlib
 import datetime
+import data_utils
 import JSONHelper
 from model import *
 import eval_metric as metric
@@ -42,7 +45,7 @@ class Trainer:
                                                    num_workers=2, drop_last=False)
 
         self.device = device
-        self.model = Net2(1, 1).to(device)
+        self.model = Net3(1, 1).to(device)
 
     def loss_and_optimizer(self):
         self.criterion = losses.l1
@@ -61,8 +64,7 @@ class Trainer:
 
             # ===================forward=====================
             output = self.model(input)
-            loss = self.criterion(output, target, self.device)
-            # loss = self.criterion(self.device, output, target, config.trunc_dist, 2)
+            loss = self.criterion(output, target, use_log_transform=True)
             # ===================backward + optimize====================
             loss.backward()
             self.optimizer.step()
@@ -71,44 +73,58 @@ class Trainer:
             batch_loss += loss.item()
 
             if (idx + 1) % 10 == 0:
-                print('Training : [%d : %5d] loss: %.3f' % (epoch + 1, idx + 1, loss.item()))
+                print('Training : [iter %d / epoch %d] loss: %.3f' % (idx + 1, epoch + 1, loss.item()))
 
         train_loss = batch_loss / (idx + 1)
         return train_loss
 
-    def validate(self):
+    def validate(self, epoch, output_save):
         self.model.eval()
         batch_loss = 0.0
         batch_iou = 0.0
+        vis_save = os.path.join(output_save, "epoch%02d" % epoch)
 
+        n_batches = len(self.dataloader_val)
         with torch.no_grad():
             for idx, sample in enumerate(self.dataloader_val):
                 input = sample['occ_grid'].to(self.device)
                 target = sample['df_gt'].to(self.device)
+                names = sample['name']
 
                 # ===================forward=====================
                 output = self.model(input)
-                loss = self.criterion(output, target, self.device)
-                # loss = self.criterion(self.device, output, target, config.trunc_dist, 2)
-                iou = metric.iou_df(output, target, config.trunc_dist)
+                loss = self.criterion(output, target, use_log_transform=True)
+                iou = metric.iou_df(output, target, trunc_dist=1.0)
 
                 # ===================log========================
                 batch_loss += loss.item()
                 batch_iou += iou
+
+                # save the predictions at the end of the epoch
+                if (idx + 1) == n_batches:
+                    batch_size = target.size(0)
+                    samples = random.sample(range(0, batch_size - 1), config.n_vis)
+                    pred_dfs = output[samples]
+                    target_dfs = target[samples]
+                    names = [names[i] for i in samples]
+                    data_utils.save_predictions(vis_save, names, pred_dfs, target_dfs)
+
             val_loss = batch_loss / (idx + 1)
             mean_iou = batch_iou / (idx + 1)
             return val_loss, mean_iou
 
-    def start(self, train_writer, val_writer, iou_writer):
+    def start(self, train_writer, val_writer, iou_writer, output_save):
         print("Start training")
         best_val_loss = 50000.0
         best_iou = 0.0
         best_val_loss_epoch = 0
         best_iou_epoch = 0
         start_time = datetime.datetime.now()
+        output_vis = os.path.join(output_save, "vis")
+        output_vis = os.path.join(output_vis, "tdf_log")
         for epoch in range(config.num_epochs):
             train_loss = self.train(epoch)
-            val_loss, iou = self.validate()
+            val_loss, iou = self.validate(epoch, output_vis)
             print("Train loss: %.3f" % train_loss)
             print("Val loss: %.3f" % val_loss)
             print("IOU: %.3f" % iou)
@@ -125,8 +141,7 @@ class Trainer:
                 best_iou_epoch = epoch
 
             torch.save(self.model.state_dict(),
-                       params["network_output"] + "Net2/" + synset_id + "/saved_models/tdf/%02d.pth"%epoch)
-
+                       params["network_output"] + "Net3/" + synset_id + "/saved_models/tdf_log/%02d.pth" % epoch)
 
         end_time = datetime.datetime.now()
         print("Finished training")
@@ -154,9 +169,10 @@ if __name__ == '__main__':
     print("Validation data size: ", len(val_list))
     print("Device: ", device)
 
-    train_writer_path = params["network_output"] + "Net2/" + synset_id + "/logs/logs_tdf/train/"
-    val_writer_path = params["network_output"] + "Net2/" + synset_id + "/logs/logs_tdf/val/"
-    iou_writer_path = params["network_output"] + "Net2/" + synset_id + "/logs/logs_tdf/iou/"
+    output_dir = os.path.join(params["network_output"], "Net3")
+    train_writer_path = output_dir + "/logs/logs_tdf_log/train/"
+    val_writer_path = output_dir + "/logs/logs_tdf_log/val/"
+    iou_writer_path = output_dir + "/logs/logs_tdf_log/iou/"
 
     pathlib.Path(train_writer_path).mkdir(parents=True, exist_ok=True)
     pathlib.Path(val_writer_path).mkdir(parents=True, exist_ok=True)
@@ -166,4 +182,4 @@ if __name__ == '__main__':
 
     trainer = Trainer(train_list, val_list, device)
     trainer.loss_and_optimizer()
-    trainer.start(train_writer, val_writer, iou_writer)
+    trainer.start(train_writer, val_writer, iou_writer, output_dir)
