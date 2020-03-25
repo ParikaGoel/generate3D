@@ -64,7 +64,7 @@ class Trainer:
 
             # ===================forward=====================
             output = self.model(input)
-            loss = self.criterion(output, target, use_log_transform=True)
+            loss = self.criterion(output, target, use_log_transform=False)
             # ===================backward + optimize====================
             loss.backward()
             self.optimizer.step()
@@ -82,7 +82,7 @@ class Trainer:
         self.model.eval()
         batch_loss = 0.0
         batch_iou = 0.0
-        vis_save = os.path.join(output_save, "epoch%02d" % epoch)
+        vis_save = os.path.join(output_save, "epoch%02d" % (epoch+1))
 
         n_batches = len(self.dataloader_val)
         with torch.no_grad():
@@ -93,7 +93,7 @@ class Trainer:
 
                 # ===================forward=====================
                 output = self.model(input)
-                loss = self.criterion(output, target, use_log_transform=True)
+                loss = self.criterion(output, target, use_log_transform=False)
                 iou = metric.iou_df(output, target, trunc_dist=1.0)
 
                 # ===================log========================
@@ -121,7 +121,7 @@ class Trainer:
         best_iou_epoch = 0
         start_time = datetime.datetime.now()
         output_vis = os.path.join(output_save, "vis")
-        output_vis = os.path.join(output_vis, "tdf_log")
+        output_vis = os.path.join(output_vis, "tdf")
         for epoch in range(config.num_epochs):
             train_loss = self.train(epoch)
             val_loss, iou = self.validate(epoch, output_vis)
@@ -140,8 +140,9 @@ class Trainer:
                 best_iou = iou
                 best_iou_epoch = epoch
 
-            torch.save(self.model.state_dict(),
-                       params["network_output"] + "Net3/" + synset_id + "/saved_models/tdf_log/%02d.pth" % epoch)
+            if epoch > 19:
+                torch.save(self.model.state_dict(),
+                        params["network_output"] + "Net3/saved_models/tdf/%02d.pth" % (epoch+1))
 
         end_time = datetime.datetime.now()
         print("Finished training")
@@ -170,9 +171,9 @@ if __name__ == '__main__':
     print("Device: ", device)
 
     output_dir = os.path.join(params["network_output"], "Net3")
-    train_writer_path = output_dir + "/logs/logs_tdf_log/train/"
-    val_writer_path = output_dir + "/logs/logs_tdf_log/val/"
-    iou_writer_path = output_dir + "/logs/logs_tdf_log/iou/"
+    train_writer_path = output_dir + "/logs/logs_tdf/train/"
+    val_writer_path = output_dir + "/logs/logs_tdf/val_l1/"
+    iou_writer_path = output_dir + "/logs/logs_tdf/iou/"
 
     pathlib.Path(train_writer_path).mkdir(parents=True, exist_ok=True)
     pathlib.Path(val_writer_path).mkdir(parents=True, exist_ok=True)
