@@ -118,7 +118,6 @@ def occ_to_df(occ, trunc, pred=True):
         all the voxels outside the truncation distance are set to trunc
     '''
     occ = preprocess_occ(occ, pred)
-    width, height, depth = occ.shape
 
     lin_ind = torch.arange(0, 27, dtype=torch.int16).to(device)
     grid_coords = torch.empty(3, lin_ind.size(0), dtype=torch.int16).to(device)
@@ -127,41 +126,37 @@ def occ_to_df(occ, trunc, pred=True):
     grid_coords[2] = lin_ind % 3
     grid_coords = (grid_coords - 1).float()
     kernel = torch.norm(grid_coords, dim=0)
-    kernel = torch.reshape(kernel, (3, 3, 3))
 
     # initialize with grid distances
-    df = torch.full(size=occ.shape, fill_value=float('inf'), dtype=torch.float32).to(device)
+    init_df = torch.full(size=occ.shape, fill_value=float('inf'), dtype=torch.float32).to(device)
     mask = torch.eq(occ, 1)
-    df[mask] = 0
+    init_df[mask] = 0
+    df = torch.full(size=(34,34,34), fill_value=float('inf'), dtype=torch.float32).to(device)
+    df[1:33,1:33,1:33] = init_df
 
-    # lin_ind_volume = torch.arange(0, width * height * depth,
-    #                               out=torch.LongTensor()).to(device)
-    # grid_coords_df = torch.empty(3, lin_ind_volume.size(0))
-    # grid_coords_df[2] = lin_ind_volume / (width * height)
-    # tmp = lin_ind_volume - (grid_coords_df[2] * width * height).long()
-    # grid_coords_df[1] = tmp / width
-    # grid_coords_df[0] = torch.remainder(tmp, width)
+    lin_ind_volume = torch.arange(0, 34 * 34 * 34,
+                                  out=torch.LongTensor()).to(device)
+    grid_coords_vol = torch.empty(3, lin_ind_volume.size(0))
+    grid_coords_vol[2] = lin_ind_volume / (34 * 34)
+    tmp = lin_ind_volume - (grid_coords_vol[2] * 34 * 34).long()
+    grid_coords_vol[1] = tmp / 34
+    grid_coords_vol[0] = torch.remainder(tmp, 34)
 
-    found = True
-    while found:
-        found = False
-        for z in range(depth):
-            for y in range(height):
-                for x in range(width):
-                    dmin = df[x,y,z]
-                    n = grid_coords + torch.tensor([x, y, z])[:, None].to(device)
-                    mask = torch.ge(n[0], 0) & torch.lt(n[0], width) & torch.ge(n[1], 0) & torch.lt(n[1], height) & torch.ge(n[2], 0) & torch.lt(n[2], depth)
+    grid_coords_df = torch.stack([grid_coords_vol + grid_coords[:,i][:,None] for i in range(grid_coords.size(1))])
+    cal_mask = torch.gt(grid_coords_vol, 0) & torch.lt(grid_coords_vol, 33)
+    cal_mask = cal_mask[0] & cal_mask[1] & cal_mask[2]
+    grid_coords_df = grid_coords_df[:,:,cal_mask]
+    grid_coords_vol = grid_coords_vol[:,cal_mask]
 
-                    if not mask.any():
-                        continue
+    for i in range(grid_coords_df.size(2)):
+        dmin = df[tuple(grid_coords_vol[:,i].long())]
+        indices_x = grid_coords_df[:, :, i][:, 0].long()
+        indices_y = grid_coords_df[:, :, i][:, 1].long()
+        indices_z = grid_coords_df[:, :, i][:, 2].long()
+        valid_dists = df[indices_x, indices_y, indices_z] + kernel
+        df[tuple(grid_coords_vol[:,i].long())] = torch.min(torch.min(valid_dists), dmin)
 
-                    n = n[:, mask].long()
-                    valid_dists = df[n[0],n[1],n[2]] + torch.flatten(kernel)[mask]
-                    dcurr = torch.min(valid_dists)
-                    if dcurr < dmin and dcurr <= trunc:
-                        dmin = dcurr
-                        df[x, y, z] = dmin
-                        found = True
+    df = df[1:33, 1:33, 1:33]
 
     mask = torch.gt(df, trunc)
     df[mask] = trunc+1
@@ -209,9 +204,9 @@ def save_predictions(output_path, names, pred_dfs, target_dfs, pred_occs, target
 
 
 
-# if __name__ == '__main__':
-#     occ_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/03001627/1a6f615e8b1b5ae4dbbc9440457e303e__0__.txt"
-#     df_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/03001627/1a6f615e8b1b5ae4dbbc9440457e303e_occ_2_df.ply"
-#     occ_grid = loader.load_sample(occ_file)
-#     df = occ_to_df(occ_grid, 4.0, False)
-#     df_to_mesh(df_file, df[0], 1.0)
+if __name__ == '__main__':
+    occ_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/03001627/1a6f615e8b1b5ae4dbbc9440457e303e__0__.txt"
+    df_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/03001627/1a6f615e8b1b5ae4dbbc9440457e303e_occ_2_df.ply"
+    occ_grid = loader.load_sample(occ_file)
+    df = occ_to_df(occ_grid, 4.0, False)
+    df_to_mesh(df_file, df[0], 1.0)
