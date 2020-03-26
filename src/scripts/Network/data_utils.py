@@ -91,6 +91,7 @@ def occ_to_mesh(filename, occ, color=None):
 def preprocess_occ(occ, pred=True):
     '''
     preprocess occupancy from network to convert predicted occupancy into a binary occupancy grid
+    Also remove the channel dimension and transform it into shape (W x H x D)
     '''
     if pred:
         occ = torch.nn.Sigmoid()(occ)
@@ -98,12 +99,12 @@ def preprocess_occ(occ, pred=True):
         occ[occupied_mask] = 1.0
         occ[~occupied_mask] = 0.0
 
-    occ = torch.transpose(occ[0], 0, 2).cpu().numpy()
+    occ = torch.transpose(occ[0], 0, 2)
     return occ
 
 
 def postprocess_df(df, trunc):
-    df = torch.transpose(torch.from_numpy(df), 0, 2).unsqueeze(0)
+    df = torch.transpose(df, 0, 2).unsqueeze(0)
     mask = torch.gt(df, trunc)
     df[mask] = trunc
     return df
@@ -111,24 +112,35 @@ def postprocess_df(df, trunc):
 
 def occ_to_df(occ, trunc, pred=True):
     '''
-    :param occ: occupancy grid as numpy array of shape (W x H x D)
+    :param occ: occupancy grid as pytorch tensor of shape (1 x D x H x W)
     :return:
-        distance field grid as numpy array of shape (W x H x D)
-        all the voxels outside the truncation distance are set to trunc + 1
+        distance field grid as pytorch tensor of shape (1 x D x H x W)
+        all the voxels outside the truncation distance are set to trunc
     '''
     occ = preprocess_occ(occ, pred)
     width, height, depth = occ.shape
 
-    kernel = np.ndarray(shape=(3, 3, 3), dtype=np.float32)
-    for k in range(-1, 2):
-        for j in range(-1, 2):
-            for i in range(-1, 2):
-                kernel[k+1,j+1,i+1] = np.linalg.norm(np.array([k, j, i]))
+    lin_ind = torch.arange(0, 27, dtype=torch.int16).to(device)
+    grid_coords = torch.empty(3, lin_ind.size(0), dtype=torch.int16).to(device)
+    grid_coords[0] = lin_ind / 9
+    grid_coords[1] = (lin_ind - grid_coords[0] * 9) / 3
+    grid_coords[2] = lin_ind % 3
+    grid_coords = (grid_coords - 1).float()
+    kernel = torch.norm(grid_coords, dim=0)
+    kernel = torch.reshape(kernel, (3, 3, 3))
 
     # initialize with grid distances
-    df = np.full(shape=(occ.shape), fill_value=float('inf'), dtype=np.float32)
-    occ_set_inds = occ == 1
-    df[occ_set_inds] = 0
+    df = torch.full(size=occ.shape, fill_value=float('inf'), dtype=torch.float32).to(device)
+    mask = torch.eq(occ, 1)
+    df[mask] = 0
+
+    # lin_ind_volume = torch.arange(0, width * height * depth,
+    #                               out=torch.LongTensor()).to(device)
+    # grid_coords_df = torch.empty(3, lin_ind_volume.size(0))
+    # grid_coords_df[2] = lin_ind_volume / (width * height)
+    # tmp = lin_ind_volume - (grid_coords_df[2] * width * height).long()
+    # grid_coords_df[1] = tmp / width
+    # grid_coords_df[0] = torch.remainder(tmp, width)
 
     found = True
     while found:
@@ -137,19 +149,22 @@ def occ_to_df(occ, trunc, pred=True):
             for y in range(height):
                 for x in range(width):
                     dmin = df[x,y,z]
-                    for k in range(-1, 2):
-                        for j in range(-1, 2):
-                            for i in range(-1, 2):
-                                n = np.array([x + i, y + j, z + k])
-                                if n[0] < width and n[1] < height and n[2] < depth:
-                                    dcurr = df[n[0],n[1], n[2]] + kernel[i + 1][j + 1][k + 1]
-                                    if dcurr < dmin and dcurr <= trunc:
-                                        dmin = dcurr
-                                        found = True
-                    df[x, y, z] = dmin
+                    n = grid_coords + torch.tensor([x, y, z])[:, None].to(device)
+                    mask = torch.ge(n[0], 0) & torch.lt(n[0], width) & torch.ge(n[1], 0) & torch.lt(n[1], height) & torch.ge(n[2], 0) & torch.lt(n[2], depth)
 
-    df_inds = df > trunc
-    df[df_inds] = trunc + 1
+                    if not mask.any():
+                        continue
+
+                    n = n[:, mask].long()
+                    valid_dists = df[n[0],n[1],n[2]] + torch.flatten(kernel)[mask]
+                    dcurr = torch.min(valid_dists)
+                    if dcurr < dmin and dcurr <= trunc:
+                        dmin = dcurr
+                        df[x, y, z] = dmin
+                        found = True
+
+    mask = torch.gt(df, trunc)
+    df[mask] = trunc+1
     df = postprocess_df(df, trunc)
 
     return df
@@ -198,5 +213,5 @@ def save_predictions(output_path, names, pred_dfs, target_dfs, pred_occs, target
 #     occ_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/03001627/1a6f615e8b1b5ae4dbbc9440457e303e__0__.txt"
 #     df_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/03001627/1a6f615e8b1b5ae4dbbc9440457e303e_occ_2_df.ply"
 #     occ_grid = loader.load_sample(occ_file)
-#     occ_grid = preprocess_occ(occ_grid, pred=False)
-#     occ_to_mesh("/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/03001627/1a6f615e8b1b5ae4dbbc9440457e303e.ply", occ_grid)
+#     df = occ_to_df(occ_grid, 4.0, False)
+#     df_to_mesh(df_file, df[0], 1.0)
