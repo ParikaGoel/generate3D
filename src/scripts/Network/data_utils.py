@@ -98,7 +98,7 @@ def preprocess_occ(occ, pred=True):
         occ[occupied_mask] = 1.0
         occ[~occupied_mask] = 0.0
 
-    occ = torch.transpose(occ[0], 0, 2).numpy()
+    occ = torch.transpose(occ[0], 0, 2).cpu().numpy()
     return occ
 
 
