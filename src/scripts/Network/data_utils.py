@@ -1,6 +1,7 @@
 import sys
 sys.path.append('../.')
 import os
+import time
 import torch
 import config
 import numpy as np
@@ -53,6 +54,7 @@ def grid_to_mesh(grid_lst, ply_file, grid_size=None):
 
 
 def df_to_mesh(filename, df, trunc=1.0, color=None):
+    df = torch.transpose(df[0], 0, 2)
     mask = torch.ge(df, 0.0) & torch.le(df, trunc)
 
     if not mask.any():
@@ -71,7 +73,7 @@ def df_to_mesh(filename, df, trunc=1.0, color=None):
 
 
 def occ_to_mesh(filename, occ, color=None):
-    mask = torch.eq(torch.from_numpy(occ), 1.0)
+    mask = torch.eq(occ, 1.0)
 
     if not mask.any():
         return
@@ -103,20 +105,14 @@ def preprocess_occ(occ, pred=True):
     return occ
 
 
-def postprocess_df(df, trunc):
-    df = torch.transpose(df, 0, 2).unsqueeze(0)
-    mask = torch.gt(df, trunc)
-    df[mask] = trunc
-    return df
-
-
 def occ_to_df(occ, trunc, pred=True):
-    '''
+    """
     :param occ: occupancy grid as pytorch tensor of shape (1 x D x H x W)
     :return:
         distance field grid as pytorch tensor of shape (1 x D x H x W)
         all the voxels outside the truncation distance are set to trunc
-    '''
+    """
+    start_time = time.time()
     occ = preprocess_occ(occ, pred)
 
     lin_ind = torch.arange(0, 27, dtype=torch.int16).to(device)
@@ -128,39 +124,37 @@ def occ_to_df(occ, trunc, pred=True):
     kernel = torch.norm(grid_coords, dim=0)
 
     # initialize with grid distances
-    init_df = torch.full(size=occ.shape, fill_value=float('inf'), dtype=torch.float32).to(device)
+    df = torch.full(size=(34, 34, 34), fill_value=float('inf'), dtype=torch.float32).to(device)
     mask = torch.eq(occ, 1)
-    init_df[mask] = 0
-    df = torch.full(size=(34,34,34), fill_value=float('inf'), dtype=torch.float32).to(device)
-    df[1:33,1:33,1:33] = init_df
+    df[1:33, 1:33, 1:33][mask] = 0
 
     lin_ind_volume = torch.arange(0, 34 * 34 * 34,
                                   out=torch.LongTensor()).to(device)
-    grid_coords_vol = torch.empty(3, lin_ind_volume.size(0))
-    grid_coords_vol[2] = lin_ind_volume / (34 * 34)
-    tmp = lin_ind_volume - (grid_coords_vol[2] * 34 * 34).long()
+    grid_coords_vol = torch.empty(3, lin_ind_volume.size(0)).to(device)
+    grid_coords_vol[0] = lin_ind_volume / (34 * 34)
+    tmp = lin_ind_volume - (grid_coords_vol[0] * 34 * 34).long()
     grid_coords_vol[1] = tmp / 34
-    grid_coords_vol[0] = torch.remainder(tmp, 34)
+    grid_coords_vol[2] = torch.remainder(tmp, 34)
 
-    grid_coords_df = torch.stack([grid_coords_vol + grid_coords[:,i][:,None] for i in range(grid_coords.size(1))])
     cal_mask = torch.gt(grid_coords_vol, 0) & torch.lt(grid_coords_vol, 33)
     cal_mask = cal_mask[0] & cal_mask[1] & cal_mask[2]
-    grid_coords_df = grid_coords_df[:,:,cal_mask]
-    grid_coords_vol = grid_coords_vol[:,cal_mask]
+    grid_coords_vol = grid_coords_vol[:, cal_mask].long()
 
-    for i in range(grid_coords_df.size(2)):
-        dmin = df[tuple(grid_coords_vol[:,i].long())]
-        indices_x = grid_coords_df[:, :, i][:, 0].long()
-        indices_y = grid_coords_df[:, :, i][:, 1].long()
-        indices_z = grid_coords_df[:, :, i][:, 2].long()
-        valid_dists = df[indices_x, indices_y, indices_z] + kernel
-        df[tuple(grid_coords_vol[:,i].long())] = torch.min(torch.min(valid_dists), dmin)
+    indices_x = (grid_coords_vol[0, None, :] + grid_coords[0, :, None]).long()
+    indices_y = (grid_coords_vol[1, None, :] + grid_coords[1, :, None]).long()
+    indices_z = (grid_coords_vol[2, None, :] + grid_coords[2, :, None]).long()
+
+    for i in range(grid_coords_vol.size(1)):
+        df[tuple(grid_coords_vol[:, i])] = torch.min(df[indices_x[:,i], indices_y[:,i], indices_z[:,i]] + kernel)
 
     df = df[1:33, 1:33, 1:33]
 
     mask = torch.gt(df, trunc)
-    df[mask] = trunc+1
-    df = postprocess_df(df, trunc)
+    df[mask] = trunc
+    df = torch.transpose(df, 0, 2).unsqueeze(0)
+
+    end_time = time.time()
+    print("Time taken: ", end_time - start_time)
 
     return df
 
@@ -207,6 +201,6 @@ def save_predictions(output_path, names, pred_dfs, target_dfs, pred_occs, target
 if __name__ == '__main__':
     occ_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/03001627/1a6f615e8b1b5ae4dbbc9440457e303e__0__.txt"
     df_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/03001627/1a6f615e8b1b5ae4dbbc9440457e303e_occ_2_df.ply"
-    occ_grid = loader.load_sample(occ_file)
+    occ_grid = loader.load_occ(occ_file)
     df = occ_to_df(occ_grid, 4.0, False)
-    df_to_mesh(df_file, df[0], 1.0)
+    df_to_mesh(df_file, df, 1.0)

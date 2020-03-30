@@ -62,4 +62,4 @@ if __name__ == '__main__':
         occ_grid = torch.transpose(occ_grid[0], 1, 2)
         df = occ_to_df(occ_grid, config.trunc_dist)
         df_file = f[:f.rfind("__0__")] + "_occ_df"
-        np.save(df_file, df)
+        np.save(df_file, df.cpu().numpy())

@@ -11,7 +11,7 @@ import pathlib
 import datetime
 import JSONHelper
 from model import *
-import data_utils_2 as utils
+import data_utils as utils
 import eval_metric as metric
 import dataset_loader as dataloader
 import torch.utils.data as torchdata
@@ -40,7 +40,7 @@ class Trainer:
                                                      num_workers=2, drop_last=False)
 
         self.dataset_val = dataloader.DatasetLoad(val_list)
-        self.dataloader_val = torchdata.DataLoader(self.dataset_val, batch_size=config.batch_size, shuffle=True,
+        self.dataloader_val = torchdata.DataLoader(self.dataset_val, batch_size=config.batch_size, shuffle=False,
                                                    num_workers=2, drop_last=False)
 
         self.device = device
@@ -94,6 +94,7 @@ class Trainer:
             for idx, sample in enumerate(self.dataloader_val):
                 input = sample['occ_grid'].to(self.device)
                 target_occ = sample['occ_gt'].to(self.device)
+                target_df = sample['occ_df_gt'].to(self.device)
                 names = sample['name']
 
                 # ===================forward=====================
@@ -102,7 +103,7 @@ class Trainer:
 
                 # Convert occ to df to calculate l1 loss
                 output_df = utils.occs_to_dfs(output_occ, trunc=config.trunc_dist, pred=True)
-                target_df = utils.occs_to_dfs(target_occ, trunc=config.trunc_dist, pred=False)
+                # target_df = utils.occs_to_dfs(target_occ, trunc=config.trunc_dist, pred=False)
                 loss_l1 = losses.l1(output_df, target_df)
                 iou = metric.iou_occ(output_occ, target_occ)
 
@@ -113,11 +114,15 @@ class Trainer:
 
                 # save the predictions at the end of the epoch
                 if (idx + 1) == n_batches:
-                    batch_size = target_occ.size(0)
-                    samples = random.sample(range(0, batch_size - 1), config.n_vis)
-                    pred_occs = output_occ[samples]
-                    target_occs = target_occ[samples]
-                    names = [names[i] for i in samples]
+                    # batch_size = target_occ.size(0)
+                    # samples = random.sample(range(0, batch_size - 1), config.n_vis)
+                    # pred_occs = output_occ[samples]
+                    # target_occs = target_occ[samples]
+                    # names = [names[i] for i in samples]
+                    pred_occs = output_occ[:config.n_vis+1]
+                    target_occs = target_occ[:config.n_vis+1]
+                    names = names[:config.n_vis+1]
+                    print("Saving visualization for ", names)
                     utils.save_predictions(vis_save, names, pred_dfs=None, target_dfs=None, pred_occs=pred_occs, target_occs=target_occs)
 
             val_loss_bce = batch_loss_bce / (idx + 1)
@@ -135,6 +140,7 @@ class Trainer:
         output_vis = params["network_output"] + "vis/" + config.model_name + "/" + config.gt_type
         output_model = params["network_output"] + "models/" + config.model_name + "/" + config.gt_type
         pathlib.Path(output_vis).mkdir(parents=True, exist_ok=True)
+        pathlib.Path(output_model).mkdir(parents=True, exist_ok=True)
 
         for epoch in range(config.num_epochs):
             train_loss = self.train(epoch)
@@ -179,11 +185,11 @@ if __name__ == '__main__':
         model_id = f[f.rfind('/') + 1:f.rfind('.')]
         train_list.append({'synset_id': config.synset_id, 'model_id': model_id})
 
-    val_list = train_list[5400:6740]
-    train_list = train_list[:5400]
+    # val_list = train_list[5400:6740]
+    # train_list = train_list[:5400]
 
-    # val_list = train_list[11:22]
-    # train_list = train_list[:10]
+    val_list = train_list[11:22]
+    train_list = train_list[:10]
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
