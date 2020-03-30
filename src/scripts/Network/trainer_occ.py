@@ -185,11 +185,11 @@ if __name__ == '__main__':
         model_id = f[f.rfind('/') + 1:f.rfind('.')]
         train_list.append({'synset_id': config.synset_id, 'model_id': model_id})
 
-    # val_list = train_list[5400:6740]
-    # train_list = train_list[:5400]
+    val_list = train_list[5400:6740]
+    train_list = train_list[:5400]
 
-    val_list = train_list[11:22]
-    train_list = train_list[:10]
+    # val_list = train_list[11:22]
+    # train_list = train_list[:10]
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

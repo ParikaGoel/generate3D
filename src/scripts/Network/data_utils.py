@@ -194,9 +194,9 @@ def save_predictions(output_path, names, pred_dfs, target_dfs, pred_occs, target
 
 
 
-if __name__ == '__main__':
-    occ_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/03001627/1a6f615e8b1b5ae4dbbc9440457e303e__0__.txt"
-    df_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/03001627/1a6f615e8b1b5ae4dbbc9440457e303e_occ_2_df.ply"
-    occ_grid = loader.load_occ(occ_file)
-    df = occ_to_df(occ_grid, 4.0, False)
-    df_to_mesh(df_file, df, 1.0)
+# if __name__ == '__main__':
+#     occ_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/03001627/1a6f615e8b1b5ae4dbbc9440457e303e__0__.txt"
+#     df_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/03001627/1a6f615e8b1b5ae4dbbc9440457e303e_occ_2_df.ply"
+#     occ_grid = loader.load_occ(occ_file)
+#     df = occ_to_df(occ_grid, 4.0, False)
+#     df_to_mesh(df_file, df, 1.0)
