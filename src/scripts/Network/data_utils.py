@@ -54,7 +54,6 @@ def grid_to_mesh(grid_lst, ply_file, grid_size=None):
 
 
 def df_to_mesh(filename, df, trunc=1.0, color=None):
-    df = torch.transpose(df[0], 0, 2)
     mask = torch.ge(df, 0.0) & torch.le(df, trunc)
 
     if not mask.any():
@@ -112,7 +111,6 @@ def occ_to_df(occ, trunc, pred=True):
         distance field grid as pytorch tensor of shape (1 x D x H x W)
         all the voxels outside the truncation distance are set to trunc
     """
-    start_time = time.time()
     occ = preprocess_occ(occ, pred)
 
     lin_ind = torch.arange(0, 27, dtype=torch.int16).to(device)
@@ -153,9 +151,6 @@ def occ_to_df(occ, trunc, pred=True):
     df[mask] = trunc
     df = torch.transpose(df, 0, 2).unsqueeze(0)
 
-    end_time = time.time()
-    print("Time taken: ", end_time - start_time)
-
     return df
 
 
@@ -191,6 +186,7 @@ def save_predictions(output_path, names, pred_dfs, target_dfs, pred_occs, target
         if pred_occs is not None:
             pred_occ = preprocess_occ(pred_occs[k], pred=True)
             occ_to_mesh(os.path.join(output_path,name+"_pred_mesh.ply"), pred_occ)
+            np.save(os.path.join(output_path,name+"_pred_mesh"), pred_occ)
 
         if target_occs is not None:
             target_occ = preprocess_occ(target_occs[k], pred=False)

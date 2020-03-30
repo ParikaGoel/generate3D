@@ -56,10 +56,16 @@ def occ_to_df(occ, trunc):
 
 if __name__ == '__main__':
 
-    for f in glob.glob(params["shapenet_voxelized"] + config.synset_id + "/*.txt"):
-        print(f)
-        occ_grid = loader.load_sample(f)
-        occ_grid = torch.transpose(occ_grid[0], 1, 2)
-        df = occ_to_df(occ_grid, config.trunc_dist)
-        df_file = f[:f.rfind("__0__")] + "_occ_df"
-        np.save(df_file, df.cpu().numpy())
+    # for f in glob.glob(params["shapenet_voxelized"] + config.synset_id + "/*.txt"):
+    #     print(f)
+    #     occ_grid = loader.load_sample(f)
+    #     occ_grid = torch.transpose(occ_grid[0], 1, 2)
+    #     df = occ_to_df(occ_grid, config.trunc_dist)
+    #     df_file = f[:f.rfind("__0__")] + "_occ_df"
+    #     np.save(df_file, df.cpu().numpy())
+
+    occ_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/03001627/1a6f615e8b1b5ae4dbbc9440457e303e__0__.txt"
+    df_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/03001627/1a6f615e8b1b5ae4dbbc9440457e303e_occ_2_df.ply"
+    occ_grid = loader.load_occ(occ_file)
+    df = occ_to_df(occ_grid, 4.0, False)
+    df_to_mesh(df_file, df, 1.0)

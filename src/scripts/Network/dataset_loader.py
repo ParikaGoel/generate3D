@@ -116,30 +116,6 @@ def load_occ(txt_file):
     return occ_grid
 
 
-def save_occ(txt_file, occ_grid):
-    """
-    saves the network output in a text file
-    :param txt_file: output text file in which to store the output produced by network
-    :param occ_grid: network output
-    """
-    occ_grid = occ_grid[0]  # <- removes the channel dimension
-    occ_grid = occ_grid.cpu().numpy().transpose(2, 1, 0)
-
-    positions = np.where(occ_grid >= 0.5)
-    with open(txt_file, "w") as f:
-        for i, j, k in zip(*positions):
-            color = np.array([169, 0, 255])
-            data = np.column_stack((i, j, k, color[0], color[1], color[2]))
-            np.savetxt(f, data, fmt='%d %d %d %d %d %d', delimiter=' ')
-
-
-def load_sdf(file):
-    sdf_grid = torch.from_numpy(np.load(file))
-    sdf_grid = torch.transpose(sdf_grid, 0, 2).unsqueeze(0)
-    sdf_grid = sdf_grid * 2
-    return sdf_grid
-
-
 def load_df(file):
     """
         loads the df grid from the file and returns it as a pytorch tensor
@@ -175,17 +151,6 @@ def load_occ_df(filename):
     return df
 
 
-def save_df(filename, df_grid):
-    """
-        saves the network output in a .npy file
-        :param file: file in which to store the output produced by network
-        :param df_grid: network output
-        """
-    df_grid = torch.transpose(df_grid[0], 0, 2)  # <- removes the channel dimension
-    df_grid = df_grid.cpu().numpy()
-    np.save(filename, df_grid)
-
-
 class DatasetLoad(torch.utils.data.Dataset):
     def __init__(self, train_list, n_max_samples=-1, transform=None):
         """
@@ -210,14 +175,13 @@ class DatasetLoad(torch.utils.data.Dataset):
         params = JSONHelper.read("../parameters.json")
 
         input_occ_file = params["shapenet_raytraced"] + synset_id + "/" + model_id + ".txt"
-        # gt_df_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "__0__.df"
+        gt_df_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "__0__.df"
         gt_occ_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "__0__.txt"
         gt_occ_df_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "_occ_df.npy"
 
         occ_grid = load_occ(input_occ_file)
-        # df_gt = load_df(gt_df_file)
+        df_gt = load_df(gt_df_file)
         occ_gt = load_occ(gt_occ_file)
         occ_df_gt = load_occ_df(gt_occ_df_file)
 
-        return {'name': model_id, 'occ_grid': occ_grid, 'occ_gt': occ_gt, 'occ_df_gt': occ_df_gt}
-        # return {'name':model_id, 'occ_grid': occ_grid, 'df_gt':df_gt}
+        return {'name': model_id, 'occ_grid': occ_grid, 'occ_gt': occ_gt, 'occ_df_gt': occ_df_gt, 'df_gt':df_gt}
