@@ -21,5 +21,5 @@ weight_decay = 1e-5
 trunc_dist = 4
 n_vis = 20  # number of samples to visualize while training
 synset_id = '04379243'
-model_name = 'Net3'
-gt_type = 'occ'
+model_name = 'Net4'
+gt_type = 'tdf'

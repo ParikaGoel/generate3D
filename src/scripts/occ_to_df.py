@@ -69,7 +69,7 @@ if __name__ == '__main__':
 
     for f in glob.glob(params["shapenet_voxelized"] + config.synset_id + "/*.txt"):
         print(f)
-        occ_grid = loader.load_occ(occ_file)
+        occ_grid = loader.load_occ(f)
         occ_grid = torch.transpose(occ_grid[0], 0, 2)
         df = occ_to_df(occ_grid, config.trunc_dist)
         df_file = f[:f.rfind("__0__")] + "_occ_df"

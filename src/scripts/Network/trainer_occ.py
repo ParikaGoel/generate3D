@@ -6,7 +6,6 @@ import glob
 import torch
 import config
 import losses
-import random
 import pathlib
 import datetime
 import JSONHelper
@@ -116,15 +115,9 @@ class Trainer:
 
                 # save the predictions at the end of the epoch
                 if (idx + 1) == n_batches:
-                    # batch_size = target_occ.size(0)
-                    # samples = random.sample(range(0, batch_size - 1), config.n_vis)
-                    # pred_occs = output_occ[samples]
-                    # target_occs = target_occ[samples]
-                    # names = [names[i] for i in samples]
                     pred_occs = output_occ[:config.n_vis+1]
                     target_occs = target_occ[:config.n_vis+1]
                     names = names[:config.n_vis+1]
-                    print("Saving visualization for ", names)
                     utils.save_predictions(vis_save, names, pred_dfs=None, target_dfs=None, pred_occs=pred_occs, target_occs=target_occs)
 
             val_loss_bce = batch_loss_bce / (idx + 1)

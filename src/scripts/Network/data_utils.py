@@ -201,16 +201,12 @@ def save_predictions(output_path, names, pred_dfs, target_dfs, pred_occs, target
 
 
 
-if __name__ == '__main__':
-    # occ_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/03001627/1a6f615e8b1b5ae4dbbc9440457e303e__0__.txt"
-    # df_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/03001627/1a6f615e8b1b5ae4dbbc9440457e303e_occ_2_df.ply"
-    # occ_file = "/home/parika/WorkingDir/complete3D/Assets_remote/output-network/vis/Net3/occ/epoch04/cca7e05c69a5d8e0a3056fa1e8da3997_pred_mesh.npy"
-    df = "/home/parika/WorkingDir/complete3D/Assets_remote/shapenet-voxelized-gt/04379243/cca7e05c69a5d8e0a3056fa1e8da3997_occ_df.npy"
-    occ = "/home/parika/WorkingDir/complete3D/Assets_remote/shapenet-voxelized-gt/04379243/cca7e05c69a5d8e0a3056fa1e8da3997__0__.txt"
-    ply_file = "/home/parika/WorkingDir/complete3D/Assets/test.ply"
-    # occ_grid = loader.load_occ(occ_file)
-    # occ_grid = np.load(occ_file)
-    # df = occ_to_df(occ_grid, 4.0, False)
-    # df = occ_to_df(torch.transpose(torch.from_numpy(occ_grid),0,2).unsqueeze(0), 4.0, False)
-    df = torch.from_numpy(np.load(df))
-    df_to_mesh(df_file, torch.transpose(df,1,2), 1.0, color=np.array([0, 169, 255]))
+# if __name__ == '__main__':
+#     # occ_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/03001627/1a6f615e8b1b5ae4dbbc9440457e303e__0__.txt"
+#     # df_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/03001627/1a6f615e8b1b5ae4dbbc9440457e303e_occ_2_df.ply"
+#     occ_file = "/home/parika/WorkingDir/complete3D/Assets_remote/output-network/vis/Net3/occ/epoch04/cca7e05c69a5d8e0a3056fa1e8da3997_pred_mesh.npy"
+#     ply_file = "/home/parika/WorkingDir/complete3D/Assets/test.ply"
+#     # occ_grid = loader.load_occ(occ_file)
+#     occ_grid = torch.from_numpy(np.load(occ_file))
+#     df = occ_to_df(occ_grid, 4.0, False)
+#     df_to_mesh(ply_file, torch.transpose(df[0],0,2), 1.0, color=np.array([0, 169, 255]))
