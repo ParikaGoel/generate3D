@@ -18,7 +18,6 @@ import torch.utils.data as torchdata
 from torch.utils.tensorboard import SummaryWriter
 
 params = JSONHelper.read("../parameters.json")
-gt_type = 'tdf'
 
 def create_summary_writers(train_writer_path, val_l1_writer_path, iou_writer_path):
     """
@@ -118,8 +117,8 @@ class Trainer:
         best_val_loss_epoch = 0
         best_iou_epoch = 0
         start_time = datetime.datetime.now()
-        output_vis = params["network_output"] + "vis/" + config.model_name + "/" + gt_type
-        output_model = params["network_output"] + "models/" + config.model_name + "/" + gt_type
+        output_vis = params["network_output"] + "vis/" + config.model_name + "/" + config.gt_type
+        output_model = params["network_output"] + "models/" + config.model_name + "/" + config.gt_type
         pathlib.Path(output_vis).mkdir(parents=True, exist_ok=True)
         pathlib.Path(output_model).mkdir(parents=True, exist_ok=True)
 
@@ -141,7 +140,7 @@ class Trainer:
                 best_iou = iou
                 best_iou_epoch = epoch
 
-            print("Epoch ", epoch, " finished\n")
+            print("Epoch ", epoch+1 , " finished\n")
 
             if epoch > 19:
                 torch.save(self.model.state_dict(), output_model + "/%02d.pth" % (epoch+1))
@@ -159,7 +158,7 @@ class Trainer:
 if __name__ == '__main__':
     train_list = []
 
-    for f in glob.glob(params["shapenet_raytraced"] + config.synset_id + "/*.txt"):
+    for f in sorted(glob.glob(params["shapenet_raytraced"] + config.synset_id + "/*.txt")):
         model_id = f[f.rfind('/') + 1:f.rfind('.')]
         train_list.append({'synset_id': config.synset_id, 'model_id': model_id})
 
@@ -175,7 +174,7 @@ if __name__ == '__main__':
     print("Validation data size: ", len(val_list))
     print("Device: ", device)
 
-    log_dir = params["network_output"] + "logs/" + config.model_name + "/" + gt_type
+    log_dir = params["network_output"] + "logs/" + config.model_name + "/" + config.gt_type
     train_writer_path = log_dir + "/train/"
     val_l1_writer_path = log_dir + "/val_l1/"
     iou_writer_path = log_dir + "/iou/"

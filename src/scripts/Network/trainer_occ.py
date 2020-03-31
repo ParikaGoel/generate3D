@@ -19,6 +19,8 @@ from torch.utils.tensorboard import SummaryWriter
 
 params = JSONHelper.read("../parameters.json")
 
+gt_type = 'occ'
+model_name = 'Net3'
 
 def create_summary_writers(train_writer_path, val_bce_writer_path, val_l1_writer_path, iou_writer_path):
     """
@@ -44,9 +46,9 @@ class Trainer:
                                                    num_workers=2, drop_last=False)
 
         self.device = device
-        if config.model_name == 'Net3':
+        if model_name == 'Net3':
             self.model = Net3(1, 1).to(device)
-        elif config.model_name == 'Net4':
+        elif model_name == 'Net4':
             self.model = Net4(1, 1).to(device)
         else:
             print("Error: Check the model name")
@@ -137,8 +139,8 @@ class Trainer:
         best_val_loss_epoch = 0
         best_iou_epoch = 0
         start_time = datetime.datetime.now()
-        output_vis = params["network_output"] + "vis/" + config.model_name + "/" + config.gt_type
-        output_model = params["network_output"] + "models/" + config.model_name + "/" + config.gt_type
+        output_vis = params["network_output"] + "vis/" + model_name + "/" + gt_type
+        output_model = params["network_output"] + "models/" + model_name + "/" + gt_type
         pathlib.Path(output_vis).mkdir(parents=True, exist_ok=True)
         pathlib.Path(output_model).mkdir(parents=True, exist_ok=True)
 
@@ -181,7 +183,7 @@ class Trainer:
 if __name__ == '__main__':
     train_list = []
 
-    for f in glob.glob(params["shapenet_raytraced"] + config.synset_id + "/*.txt"):
+    for f in sorted(glob.glob(params["shapenet_raytraced"] + config.synset_id + "/*.txt")):
         model_id = f[f.rfind('/') + 1:f.rfind('.')]
         train_list.append({'synset_id': config.synset_id, 'model_id': model_id})
 
@@ -197,7 +199,7 @@ if __name__ == '__main__':
     print("Validation data size: ", len(val_list))
     print("Device: ", device)
 
-    log_dir = params["network_output"] + "logs/" + config.model_name + "/" + config.gt_type
+    log_dir = params["network_output"] + "logs/" + model_name + "/" + gt_type
     train_writer_path = log_dir + "/train/"
     val_bce_writer_path = log_dir + "/val_bce/"
     val_l1_writer_path = log_dir + "/val_l1/"

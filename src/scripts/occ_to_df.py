@@ -1,11 +1,13 @@
 import sys
 sys.path.append('./Network')
 import glob
+import time
 import torch
 import config
 import JSONHelper
 import numpy as np
 import dataset_loader as loader
+import data_utils as utils
 
 params = JSONHelper.read("./parameters.json")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -43,8 +45,17 @@ def occ_to_df(occ, trunc):
     indices_y = (grid_coords_vol[1,None,:] + grid_coords[1, :, None]).long()
     indices_z = (grid_coords_vol[2,None,:] + grid_coords[2, :, None]).long()
 
-    for i in range(grid_coords_vol.size(1)):
-        df[tuple(grid_coords_vol[:, i])] = torch.min(df[indices_x[:,i], indices_y[:,i], indices_z[:,i]] + kernel)
+    new_df = torch.full(size=(34, 34, 34), fill_value=float('inf'), dtype=torch.float32).to(device)
+    new_df[1:33, 1:33, 1:33] = torch.reshape(
+        torch.min(df[indices_x, indices_y, indices_z] + kernel[:, None], dim=0).values, (32, 32, 32))
+
+    while not torch.all(torch.isclose(new_df, df)):
+        df = new_df
+        new_df[1:33, 1:33, 1:33] = torch.reshape(
+            torch.min(df[indices_x, indices_y, indices_z] + kernel[:, None], dim=0).values, (32, 32, 32))
+
+    # for i in range(grid_coords_vol.size(1)):
+    #     df[tuple(grid_coords_vol[:, i])] = torch.min(df[indices_x[:,i], indices_y[:,i], indices_z[:,i]] + kernel)
 
     df = df[1:33, 1:33, 1:33]
 
@@ -56,16 +67,10 @@ def occ_to_df(occ, trunc):
 
 if __name__ == '__main__':
 
-    # for f in glob.glob(params["shapenet_voxelized"] + config.synset_id + "/*.txt"):
-    #     print(f)
-    #     occ_grid = loader.load_sample(f)
-    #     occ_grid = torch.transpose(occ_grid[0], 1, 2)
-    #     df = occ_to_df(occ_grid, config.trunc_dist)
-    #     df_file = f[:f.rfind("__0__")] + "_occ_df"
-    #     np.save(df_file, df.cpu().numpy())
-
-    occ_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/03001627/1a6f615e8b1b5ae4dbbc9440457e303e__0__.txt"
-    df_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/03001627/1a6f615e8b1b5ae4dbbc9440457e303e_occ_2_df.ply"
-    occ_grid = loader.load_occ(occ_file)
-    df = occ_to_df(occ_grid, 4.0, False)
-    df_to_mesh(df_file, df, 1.0)
+    for f in glob.glob(params["shapenet_voxelized"] + config.synset_id + "/*.txt"):
+        print(f)
+        occ_grid = loader.load_occ(occ_file)
+        occ_grid = torch.transpose(occ_grid[0], 0, 2)
+        df = occ_to_df(occ_grid, config.trunc_dist)
+        df_file = f[:f.rfind("__0__")] + "_occ_df"
+        np.save(df_file, df.cpu().numpy())
