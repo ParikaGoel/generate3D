@@ -19,7 +19,7 @@ from torch.utils.tensorboard import SummaryWriter
 params = JSONHelper.read("../parameters.json")
 
 gt_type = 'occ'
-model_name = 'Net3'
+model_name = 'Net4'
 
 def create_summary_writers(train_writer_path, val_bce_writer_path, val_l1_writer_path, iou_writer_path):
     """

@@ -224,7 +224,7 @@ if __name__ == '__main__':
     }
 
     for ply_file in sorted(glob.glob(
-            "/home/parika/WorkingDir/complete3D/Assets_remote/output-network/vis/*/*/*/*_pred_mesh.ply")):
+            "/home/parika/WorkingDir/complete3D/Assets/output-network/vis/*/*/*/*_pred_mesh.ply")):
         model = ply_file.split("/")[8]
         data = ply_file.split("/")[9]
         color_key = "color_" + model + "_" + data

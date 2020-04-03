@@ -49,7 +49,7 @@ def occ_to_df(occ, trunc):
     new_df[1:33, 1:33, 1:33] = torch.reshape(
         torch.min(df[indices_x, indices_y, indices_z] + kernel[:, None], dim=0).values, (32, 32, 32))
 
-    while not torch.all(torch.isclose(new_df, df)):
+    while not torch.allclose(df, new_df, rtol=0, atol=10, equal_nan=True):
         df = new_df
         new_df[1:33, 1:33, 1:33] = torch.reshape(
             torch.min(df[indices_x, indices_y, indices_z] + kernel[:, None], dim=0).values, (32, 32, 32))
