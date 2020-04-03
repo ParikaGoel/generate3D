@@ -192,7 +192,7 @@ def read_ply(filename):
     plydata = plyfile.PlyData().read(filename)
 
     vertices = [list(x) for x in plydata['vertex']]  # Element 0 is the vertex
-    faces = [x.tolist() for x in plydata['face'].data['vertex_indices']]  # Element 1 is the face
+    faces = [x.tolist() for x in plydata['face'].data['vertex_index']]  # Element 1 is the face
     return vertices, faces
 
 
@@ -225,10 +225,3 @@ def read_obj(filename):
             index_offset = index_offset + fv
 
     return vertices, faces
-
-if __name__ == '__main__':
-    obj_file = "/home/parika/WorkingDir/complete3D/Assets/shapenet-data/04379243/1abfb0c03c81fc2219fb4103277a6b93/models/model_normalized.obj"
-    off_file = "/home/parika/WorkingDir/complete3D/Assets/raw/model.off"
-
-    vertices, faces = read_obj(obj_file)
-    write_off(off_file, vertices, faces)
