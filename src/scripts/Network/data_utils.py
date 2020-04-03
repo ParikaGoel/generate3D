@@ -63,7 +63,23 @@ def grid_to_mesh(grid_lst, ply_file, grid_size=None):
     return verts, faces
 
 
-def df_to_mesh(filename, df, trunc=1.0, color=None):
+def sdf_to_mesh(filename, sdf, trunc=1.0, color=np.array([169, 0, 255])):
+    mask = torch.ge(sdf, -trunc) & torch.le(sdf, trunc)
+
+    if not mask.any():
+        return
+
+    positions = np.where(mask.cpu().numpy())
+    grid_lst = []
+
+    for i, j, k in zip(*positions):
+        data = np.array((i, j, k, color[0], color[1], color[2]))
+        grid_lst.append(data)
+
+    grid_to_mesh(grid_lst, filename, grid_size=1)
+
+
+def df_to_mesh(filename, df, trunc=1.0, color=np.array([169, 0, 255])):
     mask = torch.ge(df, 0.0) & torch.le(df, trunc)
 
     if not mask.any():
@@ -71,8 +87,6 @@ def df_to_mesh(filename, df, trunc=1.0, color=None):
 
     positions = np.where(mask.cpu().numpy())
     grid_lst = []
-    if color is None:
-        color = np.array([169, 0, 255])
 
     for i, j, k in zip(*positions):
         data = np.array((i, j, k, color[0], color[1], color[2]))
@@ -121,7 +135,7 @@ def occ_to_df(occ, trunc, pred=True):
         distance field grid as pytorch tensor of shape (1 x D x H x W)
         all the voxels outside the truncation distance are set to trunc
     """
-    # occ = preprocess_occ(occ, pred)
+    occ = preprocess_occ(occ, pred)
 
     lin_ind = torch.arange(0, 27, dtype=torch.int16).to(device)
     grid_coords = torch.empty(3, lin_ind.size(0), dtype=torch.int16).to(device)
@@ -182,19 +196,48 @@ def occs_to_dfs(occs, trunc, pred=True):
     return dfs
 
 
-def save_predictions(output_path, names, pred_dfs, target_dfs, pred_occs, target_occs):
+def save_predictions(output_path, names, pred_sdfs, target_sdfs, pred_dfs, target_dfs, pred_occs, target_occs):
     if not os.path.isdir(output_path):
         os.makedirs(output_path)
 
+    colors = {
+        "color_Net3_occ": (169, 255, 0),  # Net3; occ
+        "color_Net3_tdf": (255, 255, 0),  # Net3; tdf
+        "color_Net3_tdf_log": (255, 0, 255),  # Net3; tdf_log
+        "color_Net3_tsdf": (169, 0, 169),  # Net3; tsdf
+        "color_Net4_occ": (169, 169, 0),  # Net4; occ
+        "color_Net4_tdf": (255, 0, 169),  # Net4; tdf
+        "color_Net4_tdf_log": (255, 0, 0),  # Net4; tdf_log
+        "color_Net4_tsdf": (0, 169, 169),  # Net4; tsdf
+    }
+
+    color_key = "color_" + config.model_name + "_" + config.gt_type
+    color = colors[color_key]
+
     for k in range(len(names)):
         name = names[k]
+        if pred_sdfs is not None:
+            pred_sdf = pred_sdfs[k]
+            # swaps width and depth dimension and removes the channel dimension
+            pred_sdf = torch.transpose(pred_sdf[0], 0, 2)
+            np.save(os.path.join(output_path, name + "_pred_df"), pred_sdf.cpu().numpy())
+            # save the occupancy mesh from pred distance field
+            sdf_to_mesh(os.path.join(output_path, name + "_pred_mesh.ply"), pred_sdf, trunc=1.0/32, color=color)
+
+        if target_sdfs is not None:
+            target_sdf = target_sdfs[k]
+            target_sdf = torch.transpose(target_sdf[0], 0, 2)
+            np.save(os.path.join(output_path, name + "_target_df"), target_sdf.cpu().numpy())
+            df_to_mesh(os.path.join(output_path, name + "_target_mesh.ply"), target_sdf, trunc=1.0/32,
+                       color=np.array([0, 169, 255]))
+
         if pred_dfs is not None:
             pred_df = pred_dfs[k]
             # swaps width and depth dimension and removes the channel dimension
             pred_df = torch.transpose(pred_df[0], 0, 2)
             np.save(os.path.join(output_path, name + "_pred_df"), pred_df.cpu().numpy())
             # save the occupancy mesh from pred distance field
-            df_to_mesh(os.path.join(output_path, name + "_pred_mesh.ply"), pred_df, trunc=1.0)
+            df_to_mesh(os.path.join(output_path, name + "_pred_mesh.ply"), pred_df, trunc=1.0, color=color)
 
         if target_dfs is not None:
             target_df = target_dfs[k]
@@ -205,27 +248,9 @@ def save_predictions(output_path, names, pred_dfs, target_dfs, pred_occs, target
 
         if pred_occs is not None:
             pred_occ = preprocess_occ(pred_occs[k], pred=True)
-            occ_to_mesh(os.path.join(output_path, name + "_pred_mesh.ply"), pred_occ)
+            occ_to_mesh(os.path.join(output_path, name + "_pred_mesh.ply"), pred_occ, color=color)
             np.save(os.path.join(output_path, name + "_pred_mesh"), pred_occ.cpu().numpy())
 
         if target_occs is not None:
             target_occ = preprocess_occ(target_occs[k], pred=False)
             occ_to_mesh(os.path.join(output_path, name + "_target_mesh.ply"), target_occ)
-
-
-if __name__ == '__main__':
-    colors = {
-    "color_Net3_occ" : (169, 255, 0), # Net3; occ
-    "color_Net3_tdf" : (255, 255, 0), # Net3; tdf
-    "color_Net3_tdf_log" : (255, 0, 255), # Net3; tdf_log
-    "color_Net4_occ" : (169, 169, 0),  # Net4; occ
-    "color_Net4_tdf" : (255, 0, 169),  # Net4; tdf
-    "color_Net4_tdf_log" : (255, 0, 0)  # Net4; tdf_log
-    }
-
-    for ply_file in sorted(glob.glob(
-            "/home/parika/WorkingDir/complete3D/Assets/output-network/vis/*/*/*/*_pred_mesh.ply")):
-        model = ply_file.split("/")[8]
-        data = ply_file.split("/")[9]
-        color_key = "color_" + model + "_" + data
-        change_color(ply_file, colors[color_key])

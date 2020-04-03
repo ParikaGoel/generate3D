@@ -55,7 +55,7 @@ class Trainer:
 
         for idx, sample in enumerate(self.dataloader_train):
             input = sample['occ_grid'].to(self.device)
-            target = sample['df_gt'].to(self.device)
+            target = sample['sdf_gt'].to(self.device)
 
             # zero the parameter gradients
             self.optimizer.zero_grad()
@@ -86,13 +86,13 @@ class Trainer:
         with torch.no_grad():
             for idx, sample in enumerate(self.dataloader_val):
                 input = sample['occ_grid'].to(self.device)
-                target_df = sample['df_gt'].to(self.device)
+                target_sdf = sample['sdf_gt'].to(self.device)
                 names = sample['name']
 
                 # ===================forward=====================
-                output_df = self.model(input)
-                loss = losses.l1(output_df, target_df, use_log_transform=False)
-                iou = metric.iou_df(output_df, target_df, trunc_dist=1.0)
+                output_sdf = self.model(input)
+                loss = losses.l1(output_sdf, target_sdf, use_log_transform=False)
+                iou = metric.iou_df(output_sdf, target_sdf, trunc_dist=1.0/32, signed=True)
 
                 # ===================log========================
                 batch_loss += loss.item()
@@ -100,12 +100,11 @@ class Trainer:
 
                 # save the predictions at the end of the epoch
                 if (idx + 1) == n_batches:
-                    pred_dfs = output_df[:config.n_vis + 1]
-                    target_dfs = target_df[:config.n_vis + 1]
+                    pred_sdfs = output_sdf[:config.n_vis + 1]
+                    target_sdfs = target_sdf[:config.n_vis + 1]
                     names = names[:config.n_vis + 1]
                     utils.save_predictions(vis_save, names, pred_sdfs=pred_sdfs, target_sdfs=target_sdfs,
-                                           pred_dfs=pred_dfs, target_dfs=target_dfs, pred_occs=None,
-                                           target_occs=None)
+                                           pred_dfs=None, target_dfs=None, pred_occs=None, target_occs=None)
 
             val_loss = batch_loss / (idx + 1)
             mean_iou = batch_iou / (idx + 1)

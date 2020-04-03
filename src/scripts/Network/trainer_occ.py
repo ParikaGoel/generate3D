@@ -104,7 +104,6 @@ class Trainer:
 
                 # Convert occ to df to calculate l1 loss
                 output_df = utils.occs_to_dfs(output_occ, trunc=config.trunc_dist, pred=True)
-                # target_df = utils.occs_to_dfs(target_occ, trunc=config.trunc_dist, pred=False)
                 loss_l1 = losses.l1(output_df, target_df)
                 iou = metric.iou_occ(output_occ, target_occ)
 
@@ -118,7 +117,8 @@ class Trainer:
                     pred_occs = output_occ[:config.n_vis+1]
                     target_occs = target_occ[:config.n_vis+1]
                     names = names[:config.n_vis+1]
-                    utils.save_predictions(vis_save, names, pred_dfs=None, target_dfs=None, pred_occs=pred_occs, target_occs=target_occs)
+                    utils.save_predictions(vis_save, names, pred_sdfs=None, target_sdfs=None, pred_dfs=None,
+                                           target_dfs=None, pred_occs=pred_occs, target_occs=target_occs)
 
             val_loss_bce = batch_loss_bce / (idx + 1)
             val_loss_l1 = batch_loss_l1 / (idx + 1)

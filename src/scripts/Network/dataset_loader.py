@@ -10,6 +10,7 @@ import imageio
 import JSONHelper
 import voxel_grid
 import numpy as np
+import data_utils as utils
 
 
 def load_imgs(folder, color = False):
@@ -151,6 +152,16 @@ def load_occ_df(filename):
     return df
 
 
+def load_sdf(filename):
+    sdf = torch.from_numpy(np.load(filename))
+    trunc = config.trunc_dist / 32
+    mask = torch.lt(sdf, -trunc) & torch.gt(sdf, trunc)
+    sdf[mask] = trunc
+    sdf = torch.transpose(sdf, 0, 2).unsqueeze(0)
+
+    return sdf
+
+
 class DatasetLoad(torch.utils.data.Dataset):
     def __init__(self, train_list, n_max_samples=-1, transform=None):
         """
@@ -178,10 +189,12 @@ class DatasetLoad(torch.utils.data.Dataset):
         gt_df_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "__0__.df"
         gt_occ_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "__0__.txt"
         gt_occ_df_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "_occ_df.npy"
+        gt_sdf_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + ".npy"
 
         occ_grid = load_occ(input_occ_file)
         df_gt = load_df(gt_df_file)
+        sdf_gt = load_sdf(gt_sdf_file)
         occ_gt = load_occ(gt_occ_file)
         occ_df_gt = load_occ_df(gt_occ_df_file)
 
-        return {'name': model_id, 'occ_grid': occ_grid, 'occ_gt': occ_gt, 'occ_df_gt': occ_df_gt, 'df_gt':df_gt}
+        return {'name': model_id, 'occ_grid': occ_grid, 'occ_gt': occ_gt, 'occ_df_gt': occ_df_gt, 'df_gt':df_gt, 'sdf_gt':sdf_gt}
