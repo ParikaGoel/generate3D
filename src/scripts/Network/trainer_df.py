@@ -42,10 +42,10 @@ class Trainer:
                                                    num_workers=2, drop_last=False)
 
         self.device = device
-        if config.model_name == 'Net3':
-            self.model = Net3(1, 1).to(device)
-        elif config.model_name == 'Net4':
-            self.model = Net4(1, 1).to(device)
+        if config.model_name == 'Net3D':
+            self.model = Net3D(1, 1).to(device)
+        elif config.model_name == 'UNet3D':
+            self.model = UNet3D(1, 1).to(device)
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
 

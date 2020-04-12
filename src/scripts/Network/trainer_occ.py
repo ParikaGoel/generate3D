@@ -18,8 +18,21 @@ from torch.utils.tensorboard import SummaryWriter
 
 params = JSONHelper.read("../parameters.json")
 
-gt_type = 'occ'
-model_name = 'Net4'
+gt_type = 'occ1'
+model_name = 'Net3D'
+
+def check_model_size(model):
+    num_params = 0
+    traininable_param = 0
+    for param in model.parameters():
+        num_params += param.numel()
+        if param.requires_grad:
+            traininable_param += param.numel()
+    print("[Network  Total number of parameters : %.3f M" % (num_params / 1e6))
+    print(
+        "[Network  Total number of trainable parameters : %.3f M"
+        % (traininable_param / 1e6)
+    )
 
 def create_summary_writers(train_writer_path, val_bce_writer_path, val_l1_writer_path, iou_writer_path):
     """
@@ -45,16 +58,18 @@ class Trainer:
                                                    num_workers=2, drop_last=False)
 
         self.device = device
-        if model_name == 'Net3':
-            self.model = Net3(1, 1).to(device)
-        elif model_name == 'Net4':
-            self.model = Net4(1, 1).to(device)
+        if model_name == 'Net3D':
+            self.model = Net3D(1, 1).to(device)
+        elif model_name == 'UNet3D':
+            self.model = UNet3D(1, 1).to(device)
         else:
             print("Error: Check the model name")
             exit(0)
 
         self.criterion = losses.bce
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
+
+        check_model_size(self.model)
 
     def train(self, epoch):
         self.model.train()
@@ -117,8 +132,8 @@ class Trainer:
                     pred_occs = output_occ[:config.n_vis+1]
                     target_occs = target_occ[:config.n_vis+1]
                     names = names[:config.n_vis+1]
-                    utils.save_predictions(vis_save, names, pred_sdfs=None, target_sdfs=None, pred_dfs=None,
-                                           target_dfs=None, pred_occs=pred_occs, target_occs=target_occs)
+                    utils.save_predictions(vis_save, names, pred_dfs=None, target_dfs=None,
+                                           pred_occs=pred_occs, target_occs=target_occs)
 
             val_loss_bce = batch_loss_bce / (idx + 1)
             val_loss_l1 = batch_loss_l1 / (idx + 1)
@@ -132,8 +147,8 @@ class Trainer:
         best_val_loss_epoch = 0
         best_iou_epoch = 0
         start_time = datetime.datetime.now()
-        output_vis = params["network_output"] + "vis/" + model_name + "/" + gt_type
-        output_model = params["network_output"] + "models/" + model_name + "/" + gt_type
+        output_vis = params["network_output"] + config.synset_id + "/vis/" + model_name + "/" + gt_type
+        output_model = params["network_output"] + config.synset_id + "/models/" + model_name + "/" + gt_type
         pathlib.Path(output_vis).mkdir(parents=True, exist_ok=True)
         pathlib.Path(output_model).mkdir(parents=True, exist_ok=True)
 
@@ -192,7 +207,7 @@ if __name__ == '__main__':
     print("Validation data size: ", len(val_list))
     print("Device: ", device)
 
-    log_dir = params["network_output"] + "logs/" + model_name + "/" + gt_type
+    log_dir = params["network_output"] + config.synset_id + "/logs/" + model_name + "/" + gt_type
     train_writer_path = log_dir + "/train/"
     val_bce_writer_path = log_dir + "/val_bce/"
     val_l1_writer_path = log_dir + "/val_l1/"
