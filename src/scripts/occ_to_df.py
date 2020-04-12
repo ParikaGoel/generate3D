@@ -54,9 +54,6 @@ def occ_to_df(occ, trunc):
         new_df[1:33, 1:33, 1:33] = torch.reshape(
             torch.min(df[indices_x, indices_y, indices_z] + kernel[:, None], dim=0).values, (32, 32, 32))
 
-    # for i in range(grid_coords_vol.size(1)):
-    #     df[tuple(grid_coords_vol[:, i])] = torch.min(df[indices_x[:,i], indices_y[:,i], indices_z[:,i]] + kernel)
-
     df = df[1:33, 1:33, 1:33]
 
     mask = torch.gt(df, trunc)
@@ -67,7 +64,7 @@ def occ_to_df(occ, trunc):
 
 if __name__ == '__main__':
 
-    for f in glob.glob(params["shapenet_voxelized"] + config.synset_id + "/*.txt"):
+    for f in glob.glob("/media/sda2/shapenet/shapenet-voxelized-gt/" + config.synset_id + "/*.txt"):
         print(f)
         occ_grid = loader.load_occ(f)
         occ_grid = torch.transpose(occ_grid[0], 0, 2)

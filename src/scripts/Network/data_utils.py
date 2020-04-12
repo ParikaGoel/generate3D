@@ -63,22 +63,6 @@ def grid_to_mesh(grid_lst, ply_file, grid_size=None):
     return verts, faces
 
 
-def sdf_to_mesh(filename, sdf, trunc=1.0, color=np.array([169, 0, 255])):
-    mask = torch.ge(sdf, -trunc) & torch.le(sdf, trunc)
-
-    if not mask.any():
-        return
-
-    positions = np.where(mask.cpu().numpy())
-    grid_lst = []
-
-    for i, j, k in zip(*positions):
-        data = np.array((i, j, k, color[0], color[1], color[2]))
-        grid_lst.append(data)
-
-    grid_to_mesh(grid_lst, filename, grid_size=1)
-
-
 def df_to_mesh(filename, df, trunc=1.0, color=np.array([169, 0, 255])):
     mask = torch.ge(df, 0.0) & torch.le(df, trunc)
 
@@ -175,9 +159,6 @@ def occ_to_df(occ, trunc, pred=True):
         new_df[1:33, 1:33, 1:33] = torch.reshape(
             torch.min(df[indices_x, indices_y, indices_z] + kernel[:, None], dim=0).values, (32, 32, 32))
 
-    # for i in range(grid_coords_vol.size(1)):
-    #     df[tuple(grid_coords_vol[:, i])] = torch.min(df[indices_x[:,i], indices_y[:,i], indices_z[:,i]] + kernel)
-
     df = df[1:33, 1:33, 1:33]
 
     mask = torch.gt(df, trunc)
@@ -196,7 +177,7 @@ def occs_to_dfs(occs, trunc, pred=True):
     return dfs
 
 
-def save_predictions(output_path, names, pred_sdfs, target_sdfs, pred_dfs, target_dfs, pred_occs, target_occs):
+def save_predictions(output_path, names, pred_dfs, target_dfs, pred_occs, target_occs):
     if not os.path.isdir(output_path):
         os.makedirs(output_path)
 
@@ -216,21 +197,6 @@ def save_predictions(output_path, names, pred_sdfs, target_sdfs, pred_dfs, targe
 
     for k in range(len(names)):
         name = names[k]
-        if pred_sdfs is not None:
-            pred_sdf = pred_sdfs[k]
-            # swaps width and depth dimension and removes the channel dimension
-            pred_sdf = torch.transpose(pred_sdf[0], 0, 2)
-            np.save(os.path.join(output_path, name + "_pred_df"), pred_sdf.cpu().numpy())
-            # save the occupancy mesh from pred distance field
-            sdf_to_mesh(os.path.join(output_path, name + "_pred_mesh.ply"), pred_sdf, trunc=1.0/32, color=color)
-
-        if target_sdfs is not None:
-            target_sdf = target_sdfs[k]
-            target_sdf = torch.transpose(target_sdf[0], 0, 2)
-            np.save(os.path.join(output_path, name + "_target_df"), target_sdf.cpu().numpy())
-            df_to_mesh(os.path.join(output_path, name + "_target_mesh.ply"), target_sdf, trunc=1.0/32,
-                       color=np.array([0, 169, 255]))
-
         if pred_dfs is not None:
             pred_df = pred_dfs[k]
             # swaps width and depth dimension and removes the channel dimension

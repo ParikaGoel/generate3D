@@ -189,12 +189,10 @@ class DatasetLoad(torch.utils.data.Dataset):
         gt_df_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "__0__.df"
         gt_occ_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "__0__.txt"
         gt_occ_df_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "_occ_df.npy"
-        gt_sdf_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + ".npy"
 
         occ_grid = load_occ(input_occ_file)
         df_gt = load_df(gt_df_file)
-        sdf_gt = load_sdf(gt_sdf_file)
         occ_gt = load_occ(gt_occ_file)
         occ_df_gt = load_occ_df(gt_occ_df_file)
 
-        return {'name': model_id, 'occ_grid': occ_grid, 'occ_gt': occ_gt, 'occ_df_gt': occ_df_gt, 'df_gt':df_gt, 'sdf_gt':sdf_gt}
+        return {'name': model_id, 'occ_grid': occ_grid, 'occ_gt': occ_gt, 'occ_df_gt': occ_df_gt, 'df_gt':df_gt}

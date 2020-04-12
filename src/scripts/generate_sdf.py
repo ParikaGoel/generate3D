@@ -23,7 +23,7 @@ def generate_sdf(synset_id, model_id):
 if __name__ == '__main__':
     synset_lst = ["04379243"]
     failed_cases = {}
-    file = params["shapenet_raytraced"] + "failed_cases.json"
+    file = params["shapenet_voxelized"] + "failed_cases.json"
 
     for synset_id in synset_lst:
         for f in glob.glob(params["shapenet"] + synset_id + "/*/models/model_normalized.obj"):

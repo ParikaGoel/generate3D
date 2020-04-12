@@ -131,20 +131,33 @@ class Net3(nn.Module):
 
     def forward(self, x):
         # Encoder Part : [1, 32, 32, 32] -> [256, 6, 6, 6]
+        print(x.shape)
         x = self.relu(self.conv1(x))
+        print(x.shape)
         x = self.relu(self.conv2(x))
+        print(x.shape)
         x = self.relu(self.conv3(x))
+        print(x.shape)
         x = self.relu(self.conv4(x))
+        print(x.shape)
         x = self.relu(self.conv5(x))
+        print(x.shape)
         x = self.relu(self.conv6(x))
+        print(x.shape)
 
         # Decoder Part : [256, 6, 6, 6] -> [1, 32, 32, 32]
         x = self.relu(self.deconv1(x))
+        print(x.shape)
         x = self.relu(self.deconv2(x))
+        print(x.shape)
         x = self.relu(self.deconv3(x))
+        print(x.shape)
         x = self.relu(self.deconv4(x))
+        print(x.shape)
         x = self.relu(self.deconv5(x))
+        print(x.shape)
         x = self.deconv6(x)
+        print(x.shape)
 
         return x
 
@@ -169,18 +182,30 @@ class Net4(nn.Module):
 
     def forward(self, x):
         # Encoder Part : [1, 32, 32, 32] -> [256, 2, 2, 2]
+        print(x.shape)
         enc1 = self.relu(self.conv1(x))
+        print(enc1.shape)
         enc2 = self.relu(self.conv2(enc1))
+        print(enc2.shape)
         enc3 = self.relu(self.conv3(enc2))
+        print(enc3.shape)
         enc4 = self.relu(self.conv4(enc3))
+        print(enc4.shape)
 
         # Decoder Part : [256, 2, 2, 2] -> [1, 32, 32, 32]
         dec1 = self.relu(self.deconv1(enc4))
+        print(dec1.shape)
         dec1 = torch.cat((dec1,enc3), dim=1)
+        print(dec1.shape)
         dec2 = self.relu(self.deconv2(dec1))
+        print(dec2.shape)
         dec2 = torch.cat((dec2, enc2), dim=1)
+        print(dec2.shape)
         dec3 = self.relu(self.deconv3(dec2))
+        print(dec3.shape)
         dec3 = torch.cat((dec3, enc1), dim=1)
+        print(dec3.shape)
         out = self.deconv4(dec3)
+        print(out.shape)
 
         return out
