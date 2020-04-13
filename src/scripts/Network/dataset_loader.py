@@ -117,7 +117,7 @@ def load_occ(txt_file):
     return occ_grid
 
 
-def load_df(file):
+def load_df(file, trunc_dist):
     """
         loads the df grid from the file and returns it as a pytorch tensor
         :param input_file: File storing df values
@@ -135,44 +135,35 @@ def load_df(file):
     df = torch.from_numpy(df).unsqueeze(0)  # <- adds channel dimension
 
     # set all distance greater than truncation to truncation distance
-    mask = torch.gt(df, config.trunc_dist)
-    df[mask] = config.trunc_dist
+    mask = torch.gt(df, trunc_dist)
+    df[mask] = trunc_dist
 
     return df
 
 
-def load_occ_df(filename):
+def load_occ_df(filename, trunc_dist):
     df = np.load(filename)
 
     df = torch.from_numpy(df)
-    mask = torch.gt(df, config.trunc_dist)
-    df[mask] = config.trunc_dist
+    mask = torch.gt(df, trunc_dist)
+    df[mask] = trunc_dist
     df = torch.transpose(df, 0, 2).unsqueeze(0)
 
     return df
 
 
-def load_sdf(filename):
-    sdf = torch.from_numpy(np.load(filename))
-    trunc = config.trunc_dist / 32
-    mask = torch.lt(sdf, -trunc) & torch.gt(sdf, trunc)
-    sdf[mask] = trunc
-    sdf = torch.transpose(sdf, 0, 2).unsqueeze(0)
-
-    return sdf
-
-
 class DatasetLoad(torch.utils.data.Dataset):
-    def __init__(self, train_list, n_max_samples=-1, transform=None):
+    def __init__(self, data_list, truncation, n_max_samples=-1, transform=None):
         """
         dataset loader class -> reads the input and gt txt files corresponding to synset_id and model_id
         and gives the occupancy grids for input and target
-        :param train_list: list of dict entries. dict entry -> {'synset_id':'02933112', 'model_id':'2f0fd2a5e181b82a4267f85fb94fa2e7'}
+        :param data_list: list of dict entries. dict entry -> {'synset_id':'02933112', 'model_id':'2f0fd2a5e181b82a4267f85fb94fa2e7'}
         :param n_max_samples: max samples to be used
         """
-        self._train_list = train_list
-        self.n_samples = len(train_list)
+        self.data_list = data_list
+        self.n_samples = len(data_list)
         self.transform = transform
+        self.truncation = truncation
         if n_max_samples != -1:
             self.n_samples = min(self.n_samples, n_max_samples)
 
@@ -180,8 +171,8 @@ class DatasetLoad(torch.utils.data.Dataset):
         return self.n_samples
 
     def __getitem__(self, index):
-        synset_id = self._train_list[index]['synset_id']
-        model_id = self._train_list[index]['model_id']
+        synset_id = self.data_list[index]['synset_id']
+        model_id = self.data_list[index]['model_id']
 
         params = JSONHelper.read("../parameters.json")
 
@@ -191,8 +182,8 @@ class DatasetLoad(torch.utils.data.Dataset):
         gt_occ_df_file = params["shapenet_voxelized"] + synset_id + "/" + model_id + "_occ_df.npy"
 
         occ_grid = load_occ(input_occ_file)
-        df_gt = load_df(gt_df_file)
         occ_gt = load_occ(gt_occ_file)
-        occ_df_gt = load_occ_df(gt_occ_df_file)
+        df_gt = load_df(gt_df_file, self.truncation)
+        occ_df_gt = load_occ_df(gt_occ_df_file, self.truncation)
 
         return {'name': model_id, 'occ_grid': occ_grid, 'occ_gt': occ_gt, 'occ_df_gt': occ_df_gt, 'df_gt':df_gt}
