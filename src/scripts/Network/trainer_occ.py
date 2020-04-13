@@ -8,6 +8,7 @@ import config
 import losses
 import pathlib
 import datetime
+import argparse
 import JSONHelper
 from model import *
 import data_utils as utils
@@ -18,8 +19,26 @@ from torch.utils.tensorboard import SummaryWriter
 
 params = JSONHelper.read("../parameters.json")
 
-gt_type = 'occ'
-model_name = 'Net3D'
+# python trainer_occ.py --synset_id 04379243 --model_name Net3D --gt_type occ --batch_size 32 --truncation 3
+
+# command line params
+parser = argparse.ArgumentParser()
+# model params
+parser.add_argument('--synset_id', type=str, required=True, help='synset id of the sample category')
+parser.add_argument('--model_name', type=str, required=True, help='which model arch to use')
+parser.add_argument('--gt_type', type=str, required=True, help='gt representation')
+parser.add_argument('--vox_dim', type=int, default=32, help='voxel dim')
+# train params
+parser.add_argument('--num_epochs', type=int, default=50, help='number of epochs')
+parser.add_argument('--save_epoch', type=int, default=10, help='save every model after n epochs')
+parser.add_argument('--batch_size', type=int, default=8, help='input batch size')
+parser.add_argument('--lr', type=float, default=0.001, help='learning rate, default=0.001')
+parser.add_argument('--decay_lr', type=int, default=10, help='decay learning rate by half every n epochs')
+parser.add_argument('--weight_decay', type=float, default=1e-5, help='weight decay.')
+parser.add_argument('--truncation', type=float, default=3, help='truncation in voxels')
+parser.add_argument('--n_vis', type=int, default=20, help='number of visualizations to save')
+
+args = parser.parse_args()
 
 def check_model_size(model):
     num_params = 0
@@ -49,25 +68,25 @@ def create_summary_writers(train_writer_path, val_bce_writer_path, val_l1_writer
 
 class Trainer:
     def __init__(self, train_list, val_list, device):
-        self.dataset_train = dataloader.DatasetLoad(train_list)
-        self.dataloader_train = torchdata.DataLoader(self.dataset_train, batch_size=config.batch_size, shuffle=True,
+        self.dataset_train = dataloader.DatasetLoad(data_list=train_list, truncation=args.truncation)
+        self.dataloader_train = torchdata.DataLoader(self.dataset_train, batch_size=args.batch_size, shuffle=True,
                                                      num_workers=2, drop_last=False)
 
-        self.dataset_val = dataloader.DatasetLoad(val_list)
-        self.dataloader_val = torchdata.DataLoader(self.dataset_val, batch_size=config.batch_size, shuffle=False,
+        self.dataset_val = dataloader.DatasetLoad(data_list=val_list, truncation=args.truncation)
+        self.dataloader_val = torchdata.DataLoader(self.dataset_val, batch_size=args.batch_size, shuffle=False,
                                                    num_workers=2, drop_last=False)
 
         self.device = device
-        if model_name == 'Net3D':
+        if args.model_name == 'Net3D':
             self.model = Net3D(1, 1).to(device)
-        elif model_name == 'UNet3D':
+        elif args.model_name == 'UNet3D':
             self.model = UNet3D(1, 1).to(device)
         else:
             print("Error: Check the model name")
             exit(0)
 
-        self.criterion = losses.bce
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
+        self.scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.decay_lr, gamma=0.5)
 
         check_model_size(self.model)
 
@@ -84,7 +103,7 @@ class Trainer:
 
             # ===================forward=====================
             output_occ = self.model(input)
-            loss = self.criterion(output_occ, target_occ)
+            loss = losses.bce(output_occ, target_occ)
             # ===================backward + optimize====================
             loss.backward()
             self.optimizer.step()
@@ -115,10 +134,10 @@ class Trainer:
 
                 # ===================forward=====================
                 output_occ = self.model(input)
-                loss_bce = self.criterion(output_occ, target_occ)
+                loss_bce = losses.bce(output_occ, target_occ)
 
                 # Convert occ to df to calculate l1 loss
-                output_df = utils.occs_to_dfs(output_occ, trunc=config.trunc_dist, pred=True)
+                output_df = utils.occs_to_dfs(output_occ, trunc=args.truncation, pred=True)
                 loss_l1 = losses.l1(output_df, target_df)
                 iou = metric.iou_occ(output_occ, target_occ)
 
@@ -129,9 +148,9 @@ class Trainer:
 
                 # save the predictions at the end of the epoch
                 if (idx + 1) == n_batches:
-                    pred_occs = output_occ[:config.n_vis+1]
-                    target_occs = target_occ[:config.n_vis+1]
-                    names = names[:config.n_vis+1]
+                    pred_occs = output_occ[:args.n_vis+1]
+                    target_occs = target_occ[:args.n_vis+1]
+                    names = names[:args.n_vis+1]
                     utils.save_predictions(vis_save, names, pred_dfs=None, target_dfs=None,
                                            pred_occs=pred_occs, target_occs=target_occs)
 
@@ -146,15 +165,23 @@ class Trainer:
         best_iou = 0.0
         best_val_loss_epoch = 0
         best_iou_epoch = 0
+        iou_at_best_l1 = 0
+        l1_at_best_iou = 0
         start_time = datetime.datetime.now()
-        output_vis = params["network_output"] + config.synset_id + "/vis/" + model_name + "/" + gt_type
-        output_model = params["network_output"] + config.synset_id + "/models/" + model_name + "/" + gt_type
+        output_vis = "%s%s/vis/%s/%s_batch%s_trunc%s" % (params["network_output"], args.synset_id, args.model_name,
+                                                         args.gt_type, args.batch_size, args.truncation)
+
+        output_model = "%s%s/models/%s/%s_batch%s_trunc%s" % (params["network_output"], args.synset_id, args.model_name,
+                                                              args.gt_type, args.batch_size, args.truncation)
+
+
         pathlib.Path(output_vis).mkdir(parents=True, exist_ok=True)
         pathlib.Path(output_model).mkdir(parents=True, exist_ok=True)
 
         for epoch in range(config.num_epochs):
             train_loss = self.train(epoch)
             val_loss_bce, val_loss_l1, iou = self.validate(epoch, output_vis)
+            self.scheduler.step()
             print("Train loss: %.3f" % train_loss)
             print("Val loss (bce): %.3f" % val_loss_bce)
             print("Val loss (l1): %.3f" % val_loss_l1)
@@ -167,20 +194,23 @@ class Trainer:
             if val_loss_l1 < best_val_loss:
                 best_val_loss = val_loss_l1
                 best_val_loss_epoch = epoch
+                iou_at_best_l1 = iou
 
             if iou > best_iou:
                 best_iou = iou
                 best_iou_epoch = epoch
+                l1_at_best_iou = val_loss_l1
 
             print("Epoch ", epoch+1, " finished\n")
 
-            if epoch > 19:
-                torch.save(self.model.state_dict(), output_model + "/%02d.pth" % (epoch+1))
+            if epoch > args.save_epoch:
+                torch.save({'state_dict': self.model.state_dict(), 'optimizer': self.optimizer.state_dict()},
+                           output_model + "/%02d.pth" % (epoch + 1))
 
         end_time = datetime.datetime.now()
         print("Finished training")
-        print("Least val loss ", best_val_loss, " at epoch ", best_val_loss_epoch)
-        print("Best iou ", best_iou, " at epoch ", best_iou_epoch)
+        print("Least val loss %.4f (iou: %.4f) at epoch %d\n" % (best_val_loss, iou_at_best_l1, best_val_loss_epoch))
+        print("Best iou %.4f (l1: %.4f) at epoch %d\n" % (best_iou, l1_at_best_iou, best_iou_epoch))
         print("Time taken: ", start_time.strftime('%D:%H:%M:%S'), " to ", end_time.strftime('%D:%H:%M:%S'))
         train_writer.close()
         val_bce_writer.close()
@@ -188,10 +218,10 @@ class Trainer:
         iou_writer.close()
 
 
-if __name__ == '__main__':
+def main():
     train_list = []
 
-    for f in sorted(glob.glob(params["shapenet_raytraced"] + config.synset_id + "/*.txt")):
+    for f in sorted(glob.glob(params["shapenet_raytraced"] + args.synset_id + "/*.txt")):
         model_id = f[f.rfind('/') + 1:f.rfind('.')]
         train_list.append({'synset_id': config.synset_id, 'model_id': model_id})
 
@@ -204,7 +234,8 @@ if __name__ == '__main__':
     print("Validation data size: ", len(val_list))
     print("Device: ", device)
 
-    log_dir = params["network_output"] + config.synset_id + "/logs/" + model_name + "/" + gt_type
+    log_dir = "%s%s/logs/%s/%s_batch%s_trunc%s" % (
+        params["network_output"], args.synset_id, args.model_name, args.gt_type, args.batch_size, args.truncation)
     train_writer_path = log_dir + "/train/"
     val_bce_writer_path = log_dir + "/val_bce/"
     val_l1_writer_path = log_dir + "/val_l1/"
@@ -219,3 +250,7 @@ if __name__ == '__main__':
 
     trainer = Trainer(train_list, val_list, device)
     trainer.start(train_writer, val_bce_writer, val_l1_writer, iou_writer)
+
+
+if __name__ == '__main__':
+    main()
