@@ -62,7 +62,7 @@ class Trainer:
 
             # ===================forward=====================
             output = self.model(input)
-            loss = losses.l1(output, target, use_log_transform=False)
+            loss = losses.l1(output, target, use_log_transform=True)
             # ===================backward + optimize====================
             loss.backward()
             self.optimizer.step()
@@ -103,9 +103,8 @@ class Trainer:
                     pred_dfs = output_df[:config.n_vis + 1]
                     target_dfs = target_df[:config.n_vis + 1]
                     names = names[:config.n_vis + 1]
-                    utils.save_predictions(vis_save, names, pred_sdfs=pred_sdfs, target_sdfs=target_sdfs,
-                                           pred_dfs=pred_dfs, target_dfs=target_dfs, pred_occs=None,
-                                           target_occs=None)
+                    utils.save_predictions(vis_save, names, pred_dfs=pred_dfs, target_dfs=target_dfs,
+                                           pred_occs=None, target_occs=None)
 
             val_loss = batch_loss / (idx + 1)
             mean_iou = batch_iou / (idx + 1)
@@ -118,8 +117,8 @@ class Trainer:
         best_val_loss_epoch = 0
         best_iou_epoch = 0
         start_time = datetime.datetime.now()
-        output_vis = params["network_output"] + "vis/" + config.model_name + "/" + config.gt_type
-        output_model = params["network_output"] + "models/" + config.model_name + "/" + config.gt_type
+        output_vis = params["network_output"] + config.synset_id + "/vis/" + config.model_name + "/" + config.gt_type
+        output_model = params["network_output"] + config.synset_id + "/models/" + config.model_name + "/" + config.gt_type
         pathlib.Path(output_vis).mkdir(parents=True, exist_ok=True)
         pathlib.Path(output_model).mkdir(parents=True, exist_ok=True)
 
@@ -166,16 +165,13 @@ if __name__ == '__main__':
     val_list = train_list[5400:6740]
     train_list = train_list[:5400]
 
-    # val_list = train_list[11:22]
-    # train_list = train_list[:10]
-
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     print("Training data size: ", len(train_list))
     print("Validation data size: ", len(val_list))
     print("Device: ", device)
 
-    log_dir = params["network_output"] + "logs/" + config.model_name + "/" + config.gt_type
+    log_dir = params["network_output"] + config.synset_id + "/logs/" + config.model_name + "/" + config.gt_type
     train_writer_path = log_dir + "/train/"
     val_l1_writer_path = log_dir + "/val_l1/"
     iou_writer_path = log_dir + "/iou/"
