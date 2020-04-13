@@ -182,14 +182,12 @@ def save_predictions(output_path, names, pred_dfs, target_dfs, pred_occs, target
         os.makedirs(output_path)
 
     colors = {
-        "color_Net3_occ": (169, 255, 0),  # Net3; occ
-        "color_Net3_tdf": (255, 255, 0),  # Net3; tdf
-        "color_Net3_tdf_log": (255, 0, 255),  # Net3; tdf_log
-        "color_Net3_tsdf": (169, 0, 169),  # Net3; tsdf
-        "color_Net4_occ": (169, 169, 0),  # Net4; occ
-        "color_Net4_tdf": (255, 0, 169),  # Net4; tdf
-        "color_Net4_tdf_log": (255, 0, 0),  # Net4; tdf_log
-        "color_Net4_tsdf": (0, 169, 169),  # Net4; tsdf
+        "color_Net3D_occ": (169, 255, 0),  # Net3; occ
+        "color_Net3D_tdf": (255, 255, 0),  # Net3; tdf
+        "color_Net3D_tdf_log": (255, 0, 255),  # Net3; tdf_log
+        "color_UNet3D_occ": (169, 169, 0),  # Net4; occ
+        "color_UNet3D_tdf": (255, 0, 169),  # Net4; tdf
+        "color_UNet3D_tdf_log": (255, 0, 0),  # Net4; tdf_log
     }
 
     color_key = "color_" + config.model_name + "_" + config.gt_type
