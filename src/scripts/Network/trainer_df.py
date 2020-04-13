@@ -116,9 +116,15 @@ class Trainer:
         best_iou = 0.0
         best_val_loss_epoch = 0
         best_iou_epoch = 0
+        iou_at_best_l1 = 0
+        l1_at_best_iou = 0
         start_time = datetime.datetime.now()
-        output_vis = params["network_output"] + config.synset_id + "/vis/" + config.model_name + "/" + config.gt_type
-        output_model = params["network_output"] + config.synset_id + "/models/" + config.model_name + "/" + config.gt_type
+        output_vis = "%s%s/vis/%s/%s_batch%s_trunc%s" % (params["network_output"], config.synset_id, config.model_name,
+                                                         config.gt_type, config.batch_size, config.trunc_dist)
+
+        output_model = "%s%s/models/%s/%s_batch%s_trunc%s" % (params["network_output"], config.synset_id, config.model_name,
+                                                              config.gt_type, config.batch_size, config.trunc_dist)
+
         pathlib.Path(output_vis).mkdir(parents=True, exist_ok=True)
         pathlib.Path(output_model).mkdir(parents=True, exist_ok=True)
 
@@ -135,20 +141,22 @@ class Trainer:
             if val_loss_l1 < best_val_loss:
                 best_val_loss = val_loss_l1
                 best_val_loss_epoch = epoch
+                iou_at_best_l1 = iou
 
             if iou > best_iou:
                 best_iou = iou
                 best_iou_epoch = epoch
+                l1_at_best_iou = val_loss_l1
 
-            print("Epoch ", epoch+1 , " finished\n")
+            print("Epoch ", epoch+1, " finished\n")
 
-            if epoch > 19:
+            if epoch > 15:
                 torch.save(self.model.state_dict(), output_model + "/%02d.pth" % (epoch+1))
 
         end_time = datetime.datetime.now()
         print("Finished training")
-        print("Least val loss ", best_val_loss, " at epoch ", best_val_loss_epoch)
-        print("Best iou ", best_iou, " at epoch ", best_iou_epoch)
+        print("Least val loss %.4f (iou: %.4f) at epoch %d\n" % (best_val_loss, iou_at_best_l1, best_val_loss_epoch))
+        print("Best iou %.4f (l1: %.4f) at epoch %d\n" % (best_iou, l1_at_best_iou, best_iou_epoch))
         print("Time taken: ", start_time.strftime('%D:%H:%M:%S'), " to ", end_time.strftime('%D:%H:%M:%S'))
         train_writer.close()
         val_l1_writer.close()
@@ -171,7 +179,7 @@ if __name__ == '__main__':
     print("Validation data size: ", len(val_list))
     print("Device: ", device)
 
-    log_dir = params["network_output"] + config.synset_id + "/logs/" + config.model_name + "/" + config.gt_type
+    log_dir = "%s%s/logs/%s/%s_batch%s_trunc%s" % (params["network_output"], config.synset_id, config.model_name, config.gt_type, config.batch_size, config.trunc_dist)
     train_writer_path = log_dir + "/train/"
     val_l1_writer_path = log_dir + "/val_l1/"
     iou_writer_path = log_dir + "/iou/"
