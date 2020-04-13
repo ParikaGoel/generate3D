@@ -4,24 +4,6 @@ import numpy as np
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def weighted_l1(output, target, trunc_dist, weight):
-    batch_size = target.shape[0]
-    assert (len(output.shape) > 1)
-
-    weights = torch.empty(target.shape).fill_(1).to(device)
-    mask = torch.ge(target, 0) & torch.lt(target, trunc_dist)
-    weights[mask] = weight
-
-    criterion = torch.nn.L1Loss(reduction="none").to(device)
-    loss = criterion(output.float(), target.float())
-    loss = loss * weights
-    loss = torch.stack([torch.mean(loss[i]) for i in range(batch_size)])
-
-    loss = torch.mean(loss)
-
-    return loss
-
-
 def apply_log_transform(df):
     sgn = torch.sign(df)
     out = torch.log(torch.abs(df) + 1)

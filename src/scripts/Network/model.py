@@ -2,7 +2,6 @@ import torch
 from torch import nn
 
 
-# improved upon Net2
 class Net3D(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(Net3D, self).__init__()
@@ -10,49 +9,36 @@ class Net3D(nn.Module):
         # Encoder Part
         self.conv1 = nn.Conv3d(in_channels, 8, kernel_size=3, stride=2, padding=1)
         self.conv2 = nn.Conv3d(8, 16, kernel_size=3, stride=1, padding=0)
-        self.conv3 = nn.Conv3d(16, 36, kernel_size=3, stride=1, padding=0)
-        self.conv4 = nn.Conv3d(36, 72, kernel_size=3, stride=1, padding=0)
-        self.conv5 = nn.Conv3d(72, 144, kernel_size=3, stride=1, padding=0)
-        self.conv6 = nn.Conv3d(144, 240, kernel_size=3, stride=1, padding=0)
+        self.conv3 = nn.Conv3d(16, 32, kernel_size=3, stride=1, padding=0)
+        self.conv4 = nn.Conv3d(32, 64, kernel_size=3, stride=1, padding=0)
+        self.conv5 = nn.Conv3d(64, 128, kernel_size=3, stride=1, padding=0)
+        self.conv6 = nn.Conv3d(128, 256, kernel_size=3, stride=1, padding=0)
         self.relu = nn.ReLU(inplace=True)
 
         # Decoder Part
-        self.deconv1 = nn.ConvTranspose3d(240, 144, kernel_size=3, stride=1, padding=0, output_padding=0)
-        self.deconv2 = nn.ConvTranspose3d(144, 72, kernel_size=3, stride=1, padding=0, output_padding=0)
-        self.deconv3 = nn.ConvTranspose3d(72, 36, kernel_size=3, stride=1, padding=0, output_padding=0)
-        self.deconv4 = nn.ConvTranspose3d(36, 16, kernel_size=3, stride=1, padding=0, output_padding=0)
+        self.deconv1 = nn.ConvTranspose3d(256, 128, kernel_size=3, stride=1, padding=0, output_padding=0)
+        self.deconv2 = nn.ConvTranspose3d(128, 64, kernel_size=3, stride=1, padding=0, output_padding=0)
+        self.deconv3 = nn.ConvTranspose3d(64, 32, kernel_size=3, stride=1, padding=0, output_padding=0)
+        self.deconv4 = nn.ConvTranspose3d(32, 16, kernel_size=3, stride=1, padding=0, output_padding=0)
         self.deconv5 = nn.ConvTranspose3d(16, 8, kernel_size=3, stride=1, padding=0, output_padding=0)
         self.deconv6 = nn.ConvTranspose3d(8, out_channels, kernel_size=3, stride=2, padding=1, output_padding=1)
 
     def forward(self, x):
         # Encoder Part : [1, 32, 32, 32] -> [256, 6, 6, 6]
-        print(x.shape)
         x = self.relu(self.conv1(x))
-        print(x.shape)
         x = self.relu(self.conv2(x))
-        print(x.shape)
         x = self.relu(self.conv3(x))
-        print(x.shape)
         x = self.relu(self.conv4(x))
-        print(x.shape)
         x = self.relu(self.conv5(x))
-        print(x.shape)
         x = self.relu(self.conv6(x))
-        print(x.shape)
 
         # Decoder Part : [256, 6, 6, 6] -> [1, 32, 32, 32]
         x = self.relu(self.deconv1(x))
-        print(x.shape)
         x = self.relu(self.deconv2(x))
-        print(x.shape)
         x = self.relu(self.deconv3(x))
-        print(x.shape)
         x = self.relu(self.deconv4(x))
-        print(x.shape)
         x = self.relu(self.deconv5(x))
-        print(x.shape)
         x = self.deconv6(x)
-        print(x.shape)
 
         return x
 

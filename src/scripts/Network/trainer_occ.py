@@ -18,7 +18,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 params = JSONHelper.read("../parameters.json")
 
-gt_type = 'occ1'
+gt_type = 'occ'
 model_name = 'Net3D'
 
 def check_model_size(model):
@@ -197,9 +197,6 @@ if __name__ == '__main__':
 
     val_list = train_list[5400:6740]
     train_list = train_list[:5400]
-
-    # val_list = train_list[11:22]
-    # train_list = train_list[:10]
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
