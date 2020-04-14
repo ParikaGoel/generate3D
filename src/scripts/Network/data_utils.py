@@ -177,7 +177,7 @@ def occs_to_dfs(occs, trunc, pred=True):
     return dfs
 
 
-def save_predictions(output_path, names, pred_dfs, target_dfs, pred_occs, target_occs):
+def save_predictions(output_path, model_name, gt_type, names, pred_dfs, target_dfs, pred_occs, target_occs):
     if not os.path.isdir(output_path):
         os.makedirs(output_path)
 
@@ -190,7 +190,7 @@ def save_predictions(output_path, names, pred_dfs, target_dfs, pred_occs, target
         "color_UNet3D_tdflog": (255, 0, 0),  # Net4; tdflog
     }
 
-    color_key = "color_" + config.model_name + "_" + config.gt_type
+    color_key = "color_" + model_name + "_" + gt_type
     color = colors[color_key]
 
     for k in range(len(names)):

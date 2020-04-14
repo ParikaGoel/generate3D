@@ -8,3 +8,5 @@ zfar = 4.0
 focal = 525.0
 cam_depth = 1.4
 color_bg = [1., 1., 1.]
+
+vox_dim = 32

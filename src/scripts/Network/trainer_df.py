@@ -71,7 +71,7 @@ class Trainer:
             self.model = UNet3D(1, 1).to(device)
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-        self.scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.decay_lr, gamma=0.5)
+        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=args.decay_lr, gamma=0.5)
 
     def train(self, epoch):
         self.model.train()
@@ -126,7 +126,7 @@ class Trainer:
                     pred_dfs = output_df[:args.n_vis + 1]
                     target_dfs = target_df[:args.n_vis + 1]
                     names = names[:args.n_vis + 1]
-                    utils.save_predictions(vis_save, names, pred_dfs=pred_dfs, target_dfs=target_dfs,
+                    utils.save_predictions(vis_save, args.model_name, args.gt_type, names, pred_dfs=pred_dfs, target_dfs=target_dfs,
                                            pred_occs=None, target_occs=None)
 
             val_loss = batch_loss / (idx + 1)

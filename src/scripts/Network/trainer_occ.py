@@ -85,8 +85,8 @@ class Trainer:
             print("Error: Check the model name")
             exit(0)
 
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
-        self.scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.decay_lr, gamma=0.5)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=args.decay_lr, gamma=0.5)
 
         check_model_size(self.model)
 
@@ -151,7 +151,7 @@ class Trainer:
                     pred_occs = output_occ[:args.n_vis+1]
                     target_occs = target_occ[:args.n_vis+1]
                     names = names[:args.n_vis+1]
-                    utils.save_predictions(vis_save, names, pred_dfs=None, target_dfs=None,
+                    utils.save_predictions(vis_save, args.model_name, args.gt_type, names, pred_dfs=None, target_dfs=None,
                                            pred_occs=pred_occs, target_occs=target_occs)
 
             val_loss_bce = batch_loss_bce / (idx + 1)
@@ -178,7 +178,7 @@ class Trainer:
         pathlib.Path(output_vis).mkdir(parents=True, exist_ok=True)
         pathlib.Path(output_model).mkdir(parents=True, exist_ok=True)
 
-        for epoch in range(config.num_epochs):
+        for epoch in range(args.num_epochs):
             train_loss = self.train(epoch)
             val_loss_bce, val_loss_l1, iou = self.validate(epoch, output_vis)
             self.scheduler.step()
@@ -223,7 +223,7 @@ def main():
 
     for f in sorted(glob.glob(params["shapenet_raytraced"] + args.synset_id + "/*.txt")):
         model_id = f[f.rfind('/') + 1:f.rfind('.')]
-        train_list.append({'synset_id': config.synset_id, 'model_id': model_id})
+        train_list.append({'synset_id': args.synset_id, 'model_id': model_id})
 
     val_list = train_list[5400:6740]
     train_list = train_list[:5400]
