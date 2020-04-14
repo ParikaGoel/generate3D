@@ -19,7 +19,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 params = JSONHelper.read("../parameters.json")
 
-# python trainer_df.py --synset_id 04379243 --model_name Net3D --gt_type tdflog --use_logweight True --batch_size 32 --truncation 3
+# python trainer_df.py --synset_id 04379243 --model_name Net3D --gt_type tdflog --use_logweight --train_batch_size 8 --val_batch_size 16 --truncation 3
 
 # command line params
 parser = argparse.ArgumentParser()
@@ -28,17 +28,19 @@ parser.add_argument('--synset_id', type=str, required=True, help='synset id of t
 parser.add_argument('--model_name', type=str, required=True, help='which model arch to use')
 parser.add_argument('--gt_type', type=str, required=True, help='gt representation')
 parser.add_argument('--vox_dim', type=int, default=32, help='voxel dim')
-parser.add_argument('--use_logweight', type=bool, default=False, help='use log transform for continuous weigthing')
+parser.add_argument('--use_logweight', dest='use_logweight', action='store_true', help='use log transform for continuous weigthing')
 # train params
 parser.add_argument('--num_epochs', type=int, default=50, help='number of epochs')
 parser.add_argument('--save_epoch', type=int, default=10, help='save every model after n epochs')
-parser.add_argument('--batch_size', type=int, default=8, help='input batch size')
+parser.add_argument('--train_batch_size', type=int, default=8, help='batch size for training data')
+parser.add_argument('--val_batch_size', type=int, default=16, help='batch size for validation data')
 parser.add_argument('--lr', type=float, default=0.001, help='learning rate, default=0.001')
 parser.add_argument('--decay_lr', type=int, default=10, help='decay learning rate by half every n epochs')
 parser.add_argument('--weight_decay', type=float, default=1e-5, help='weight decay.')
 parser.add_argument('--truncation', type=float, default=3, help='truncation in voxels')
 parser.add_argument('--n_vis', type=int, default=20, help='number of visualizations to save')
 
+parser.set_defaults(use_logweight=False)
 args = parser.parse_args()
 print(args)
 
@@ -57,11 +59,11 @@ def create_summary_writers(train_writer_path, val_l1_writer_path, iou_writer_pat
 class Trainer:
     def __init__(self, train_list, val_list, device):
         self.dataset_train = dataloader.DatasetLoad(data_list=train_list, truncation=args.truncation)
-        self.dataloader_train = torchdata.DataLoader(self.dataset_train, batch_size=args.batch_size, shuffle=True,
+        self.dataloader_train = torchdata.DataLoader(self.dataset_train, batch_size=args.train_batch_size, shuffle=True,
                                                      num_workers=2, drop_last=False)
 
         self.dataset_val = dataloader.DatasetLoad(data_list=val_list, truncation=args.truncation)
-        self.dataloader_val = torchdata.DataLoader(self.dataset_val, batch_size=args.batch_size, shuffle=False,
+        self.dataloader_val = torchdata.DataLoader(self.dataset_val, batch_size=args.val_batch_size, shuffle=False,
                                                    num_workers=2, drop_last=False)
 
         self.device = device
@@ -122,7 +124,7 @@ class Trainer:
                 batch_iou += iou
 
                 # save the predictions at the end of the epoch
-                if (idx + 1) == n_batches:
+                if (idx + 1) == n_batches-1:
                     pred_dfs = output_df[:args.n_vis + 1]
                     target_dfs = target_df[:args.n_vis + 1]
                     names = names[:args.n_vis + 1]
@@ -143,10 +145,10 @@ class Trainer:
         l1_at_best_iou = 0
         start_time = datetime.datetime.now()
         output_vis = "%s%s/vis/%s/%s_batch%s_trunc%s" % (params["network_output"], args.synset_id, args.model_name,
-                                                         args.gt_type, args.batch_size, args.truncation)
+                                                         args.gt_type, args.train_batch_size, args.truncation)
 
         output_model = "%s%s/models/%s/%s_batch%s_trunc%s" % (params["network_output"], args.synset_id, args.model_name,
-                                                              args.gt_type, args.batch_size, args.truncation)
+                                                              args.gt_type, args.train_batch_size, args.truncation)
 
         pathlib.Path(output_vis).mkdir(parents=True, exist_ok=True)
         pathlib.Path(output_model).mkdir(parents=True, exist_ok=True)
@@ -205,7 +207,7 @@ def main():
     print("Device: ", device)
 
     log_dir = "%s%s/logs/%s/%s_batch%s_trunc%s" % (
-    params["network_output"], args.synset_id, args.model_name, args.gt_type, args.batch_size, args.truncation)
+    params["network_output"], args.synset_id, args.model_name, args.gt_type, args.train_batch_size, args.truncation)
     train_writer_path = log_dir + "/train/"
     val_l1_writer_path = log_dir + "/val_l1/"
     iou_writer_path = log_dir + "/iou/"

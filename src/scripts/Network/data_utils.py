@@ -13,7 +13,7 @@ import data_formats as formats
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def change_color(ply_file, color=(169, 0, 255)):
+def change_color(ply_file, color=(0, 169, 255)):
     vertices, faces = formats.read_ply(ply_file)
     new_vertices = [tuple(vertex[:3]) + color for vertex in vertices]
 
@@ -192,6 +192,7 @@ def save_predictions(output_path, model_name, gt_type, names, pred_dfs, target_d
 
     color_key = "color_" + model_name + "_" + gt_type
     color = colors[color_key]
+    color = np.array([0, 169, 255])
 
     for k in range(len(names)):
         name = names[k]
@@ -217,4 +218,4 @@ def save_predictions(output_path, model_name, gt_type, names, pred_dfs, target_d
 
         if target_occs is not None:
             target_occ = preprocess_occ(target_occs[k], pred=False)
-            occ_to_mesh(os.path.join(output_path, name + "_target_mesh.ply"), target_occ)
+            occ_to_mesh(os.path.join(output_path, name + "_target_mesh.ply"), target_occ, color=color)
