@@ -114,8 +114,8 @@ class Trainer:
             # ===================log========================
             batch_loss += loss.item()
 
-            if (idx + 1) % 10 == 0:
-                print('Training : [iter %d / epoch %d] loss: %.3f' % (idx + 1, epoch + 1, loss.item()))
+            # if (idx + 1) % 10 == 0:
+            #     print('Training : [iter %d / epoch %d] loss: %.3f' % (idx + 1, epoch + 1, loss.item()))
 
         train_loss = batch_loss / (idx + 1)
         return train_loss
@@ -150,7 +150,7 @@ class Trainer:
                 batch_iou += iou
 
                 # save the predictions at the end of the epoch
-                if (idx + 1) == n_batches-1:
+                if epoch > args.save_epoch and (idx + 1) == n_batches-1:
                     pred_occs = output_occ[:args.n_vis+1]
                     target_occs = target_occ[:args.n_vis+1]
                     names = names[:args.n_vis+1]
@@ -196,19 +196,19 @@ class Trainer:
 
             if val_loss_l1 < best_val_loss:
                 best_val_loss = val_loss_l1
-                best_val_loss_epoch = epoch
+                best_val_loss_epoch = epoch + 1
                 iou_at_best_l1 = iou
 
             if iou > best_iou:
                 best_iou = iou
-                best_iou_epoch = epoch
+                best_iou_epoch = epoch + 1
                 l1_at_best_iou = val_loss_l1
 
             print("Epoch ", epoch+1, " finished\n")
 
             if epoch > args.save_epoch:
                 torch.save({'state_dict': self.model.state_dict(), 'optimizer': self.optimizer.state_dict()},
-                           output_model + "/%02d.pth" % (epoch + 1))
+                           output_model + "/%02d.pth" % (epoch+1))
 
         end_time = datetime.datetime.now()
         print("Finished training")

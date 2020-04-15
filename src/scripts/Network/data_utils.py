@@ -204,21 +204,21 @@ def save_predictions(output_path, model_name, gt_type, names, pred_dfs, target_d
             # save the occupancy mesh from pred distance field
             df_to_mesh(os.path.join(output_path, name + "_pred_mesh.ply"), pred_df, trunc=1.0, color=color)
 
-        if target_dfs is not None:
-            target_df = target_dfs[k]
-            target_df = torch.transpose(target_df[0], 0, 2)
-            np.save(os.path.join(output_path, name + "_target_df"), target_df.cpu().numpy())
-            df_to_mesh(os.path.join(output_path, name + "_target_mesh.ply"), target_df, trunc=1.0,
-                       color=np.array([0, 169, 255]))
+        # if target_dfs is not None:
+        #     target_df = target_dfs[k]
+        #     target_df = torch.transpose(target_df[0], 0, 2)
+        #     np.save(os.path.join(output_path, name + "_target_df"), target_df.cpu().numpy())
+        #     df_to_mesh(os.path.join(output_path, name + "_target_mesh.ply"), target_df, trunc=1.0,
+        #                color=np.array([0, 169, 255]))
 
         if pred_occs is not None:
             pred_occ = preprocess_occ(pred_occs[k], pred=True)
             occ_to_mesh(os.path.join(output_path, name + "_pred_mesh.ply"), pred_occ, color=color)
             np.save(os.path.join(output_path, name + "_pred_mesh"), pred_occ.cpu().numpy())
 
-        if target_occs is not None:
-            target_occ = preprocess_occ(target_occs[k], pred=False)
-            occ_to_mesh(os.path.join(output_path, name + "_target_mesh.ply"), target_occ, color=color)
+        # if target_occs is not None:
+        #     target_occ = preprocess_occ(target_occs[k], pred=False)
+        #     occ_to_mesh(os.path.join(output_path, name + "_target_mesh.ply"), target_occ, color=color)
 
 if __name__ == '__main__':
     for f in glob.glob("/home/parika/WorkingDir/complete3D/Assets/shapenet-raytraced/04379243/*.ply"):
