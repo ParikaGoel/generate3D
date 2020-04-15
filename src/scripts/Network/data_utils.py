@@ -219,3 +219,8 @@ def save_predictions(output_path, model_name, gt_type, names, pred_dfs, target_d
         if target_occs is not None:
             target_occ = preprocess_occ(target_occs[k], pred=False)
             occ_to_mesh(os.path.join(output_path, name + "_target_mesh.ply"), target_occ, color=color)
+
+if __name__ == '__main__':
+    for f in glob.glob("/home/parika/WorkingDir/complete3D/Assets/shapenet-raytraced/04379243/*.ply"):
+        print(f)
+        change_color(f, color=(0, 169, 255))

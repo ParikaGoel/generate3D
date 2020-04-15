@@ -19,7 +19,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 params = JSONHelper.read("../parameters.json")
 
-# python trainer_occ.py --synset_id 04379243 --model_name Net3D --gt_type occ --train_batch_size 8 --val_batch_size 16 --truncation 3
+# python3 trainer_occ.py --synset_id 04379243 --model_name Net3D --gt_type occ --train_batch_size 8 --val_batch_size 32 --truncation 3 --lr 0.001 --lr_decay 0.1 --n_vis 20
 
 # command line params
 parser = argparse.ArgumentParser()
@@ -34,12 +34,14 @@ parser.add_argument('--save_epoch', type=int, default=10, help='save every model
 parser.add_argument('--train_batch_size', type=int, default=8, help='batch size for training data')
 parser.add_argument('--val_batch_size', type=int, default=16, help='batch size for validation data')
 parser.add_argument('--lr', type=float, default=0.001, help='learning rate, default=0.001')
-parser.add_argument('--decay_lr', type=int, default=10, help='decay learning rate by half every n epochs')
+parser.add_argument('--lr_decay', type=float, default=0.5, help='decay learning rate by lr_decay after every decay_lr_epoch epochs ')
+parser.add_argument('--decay_lr_epoch', type=int, default=10, help='decay learning rate by lr_decay after every decay_lr_epoch epochs')
 parser.add_argument('--weight_decay', type=float, default=1e-5, help='weight decay.')
 parser.add_argument('--truncation', type=float, default=3, help='truncation in voxels')
 parser.add_argument('--n_vis', type=int, default=20, help='number of visualizations to save')
 
 args = parser.parse_args()
+print(args)
 
 def check_model_size(model):
     num_params = 0
@@ -87,7 +89,7 @@ class Trainer:
             exit(0)
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=args.decay_lr, gamma=0.5)
+        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=args.decay_lr_epoch, gamma=args.lr_decay)
 
         check_model_size(self.model)
 
