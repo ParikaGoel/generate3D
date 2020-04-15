@@ -2,95 +2,123 @@ import sys
 sys.path.append("../.")
 import glob
 import torch
-import config
 import pathlib
+import argparse
 import JSONHelper
-import voxel_grid
 from model import *
+import data_utils as utils
 import eval_metric as metric
 import dataset_loader as dataloader
 import torch.utils.data as torchdata
 
-synset_id = '04379243'
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+params = JSONHelper.read('../parameters.json')
 
-class Tester:
-    def __init__(self, test_list, device):
-        self.dataset_test = dataloader.DatasetLoad(test_list)
-        self.device = device
+# python3 evaluate_model --model_path /home/parika/WorkingDir/complete3D/Assets/output-network/04379243/final_results/Net3D/occ.pth
+# --synset_id 04379243 --model_name Net3D --gt_type occ --start_index 6740 --n_vis 30
 
-    def test(self, saved_model):
-        self.dataloader_test = torchdata.DataLoader(self.dataset_test, batch_size=config.batch_size, shuffle=True,
-                                                    num_workers=2, drop_last=False)
+# command line params
+parser = argparse.ArgumentParser()
+# model params
+parser.add_argument('--model_path', type=str, required=True, help='path to saved model')
+parser.add_argument('--synset_id', type=str, required=True, help='synset id of the sample category')
+parser.add_argument('--model_name', type=str, required=True, help='which model arch to use')
+parser.add_argument('--gt_type', type=str, required=True, help='gt representation')
+parser.add_argument('--start_index', type=int, default=6740, help='index to start test set with')
+parser.add_argument('--vox_dim', type=int, default=32, help='voxel dim')
+parser.add_argument('--batch_size', type=int, default=32, help='batch size')
+parser.add_argument('--truncation', type=float, default=3, help='truncation in voxels')
+parser.add_argument('--n_vis', type=int, default=20, help='number of visualizations')
 
-        model = Net2(1, 1)
+args = parser.parse_args()
+print(args)
 
-        # load our saved model and use it to predict the class for test images
-        model.load_state_dict(torch.load(saved_model, map_location=self.device))
-        model = model.to(device)
-        model.eval()
+def test(test_list):
+    dataset_test = dataloader.DatasetLoad(data_list=test_list, truncation=args.truncation)
+    if args.model_name == 'Net3D':
+        model = Net3D(1, 1).to(device)
+    elif args.model_name == 'UNet3D':
+        model = UNet3D(1, 1).to(device)
 
-        mean_iou = 0.0
-        largest_iou = 0.0
-        counter = 0
+    dataloader_test = torchdata.DataLoader(dataset_test, batch_size=args.batch_size, shuffle=False,
+                                                num_workers=2, drop_last=False)
 
-        with torch.no_grad():
-            for idx, sample in enumerate(self.dataloader_test):
-                input = sample['occ_grid'].to(self.device)
-                target = sample['df_gt'].to(self.device)
+    # load our saved model and use it to predict the class for test images
+    checkpoint = torch.load(args.model_path)
+    model.load_state_dict(checkpoint['state_dict'])
+    model = model.to(device)
+    model.eval()
 
-                output = model(input)
+    vis_save = "%s%s/test_vis/%s/%s" % (params["network_output"], args.synset_id, args.model_name,
+                                                     args.gt_type)
+    pathlib.Path(output_vis).mkdir(parents=True, exist_ok=True)
 
-                iou_val = metric.iou_sdf(output, target)
+    n_batches = len(dataloader_test)
+    with torch.no_grad():
+        for idx, sample in enumerate(dataloader_test):
+            input = sample['occ_grid'].to(device)
+            names = sample['name']
 
-                mean_iou = mean_iou + iou_val
+            if args.gt_type == 'occ':
+                target_occ = sample['occ_gt'].to(device)
+                target_df = sample['occ_df_gt'].to(device)
 
-                if (largest_iou < iou_val):
-                    largest_iou = iou_val
-                    best_predicted_model = output[0].detach()
-                    ground_truth = target[0].detach()
+                # ===================forward=====================
+                output_occ = model(input)
 
-                counter = counter + 1
+                # Convert occ to df to calculate l1 loss
+                output_df = utils.occs_to_dfs(output_occ, trunc=args.truncation, pred=True)
+                l1 = losses.l1(output_df, target_df)
+                iou = metric.iou_occ(output_occ, target_occ)
+
+                # save the predictions
+                if (idx + 1) == n_batches - 1:
+                    pred_occs = output_occ[:args.n_vis + 1]
+                    target_occs = target_occ[:args.n_vis + 1]
+                    names = names[:args.n_vis + 1]
+                    utils.save_predictions(vis_save, args.model_name, args.gt_type, names, pred_dfs=None,
+                                           target_dfs=None,
+                                           pred_occs=pred_occs, target_occs=target_occs)
+            else:
+                target_df = sample['df_gt'].to(device)
+
+                output_df = model(input)
+                l1 = losses.l1(output_df, target_df)
+                iou = metric.iou_df(output_df, target_df, trunc_dist=1.0)
+
+                # save the predictions
+                if (idx + 1) == n_batches - 1:
+                    pred_dfs = output_df[:args.n_vis + 1]
+                    target_dfs = target_df[:args.n_vis + 1]
+                    names = names[:args.n_vis + 1]
+                    utils.save_predictions(vis_save, args.model_name, args.gt_type, names, pred_dfs=pred_dfs,
+                                           target_dfs=target_dfs,
+                                           pred_occs=None, target_occs=None)
+
+            batch_loss += l1.item()
+            batch_iou += iou
+
+        l1_error = batch_loss / (idx + 1)
+        mean_iou = batch_iou / (idx + 1)
+
+        print("Mean IOU: ", mean_iou)
+        print("L1 Error: ", l1_error)
 
 
-                # ===================log========================
-                print('[%5d] iou: %.3f' % (idx + 1, iou_val))
+def main():
+    test_list = []
 
-            mean_iou = mean_iou / counter
+    for f in sorted(glob.glob(params["shapenet_raytraced"] + args.synset_id + "/*.txt")):
+        model_id = f[f.rfind('/') + 1:f.rfind('.')]
+        test_list.append({'synset_id': args.synset_id, 'model_id': model_id})
 
-            print("Mean IOU value : ", mean_iou)
-            print("Largest IOU value: ", largest_iou)
-
-        return best_predicted_model, ground_truth
+    test_list = test_list[args.start_index:]
+    test(test_list)
 
 
 if __name__ == '__main__':
-    params = JSONHelper.read('../parameters.json')
+    main()
 
-    val_list = []
-
-    for f in glob.glob(params["shapenet_raytraced"] + synset_id + "/*.txt"):
-        model_id = f[f.rfind('/') + 1:f.rfind('.')]
-        val_list.append({'synset_id': synset_id, 'model_id': model_id})
-
-    # test_list = test_list[6740:]
-    val_list = val_list[5400:6740]
-
-    out_folder = params["network_output"] + 'Net2/' + synset_id
-    saved_model = out_folder + "/saved_models/sdf.pth"
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    print("Saved model: ", saved_model)
-
-    tester = Tester(val_list, device)
-    best_model, ground_truth = tester.test(saved_model)
-
-    dataloader.save_df(out_folder + "/predicted_test_output/best_model", best_model)
-    # dataloader.df_to_mesh(out_folder + "/predicted_test_output/best_model.npy", out_folder + "/predicted_test_output/best_model.ply")
-
-    dataloader.save_df(out_folder + "/predicted_test_output/gt", ground_truth)
-    # dataloader.df_to_mesh(out_folder + "/predicted_test_output/gt.npy",
-    #                        out_folder + "/predicted_test_output/gt.ply")
-        
 
         
 
