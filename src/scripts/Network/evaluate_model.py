@@ -2,6 +2,7 @@ import sys
 sys.path.append("../.")
 import glob
 import torch
+import losses
 import pathlib
 import argparse
 import JSONHelper
@@ -49,10 +50,12 @@ def test(test_list):
     model = model.to(device)
     model.eval()
 
-    vis_save = "%s%s/test_vis/%s/%s" % (params["network_output"], args.synset_id, args.model_name,
+    vis_save = "%sfinal_results/%s/%s" % (params["network_output"], args.model_name,
                                                      args.gt_type)
-    pathlib.Path(output_vis).mkdir(parents=True, exist_ok=True)
+    pathlib.Path(vis_save).mkdir(parents=True, exist_ok=True)
 
+    batch_l1 = 0.0
+    batch_iou = 0.0
     n_batches = len(dataloader_test)
     with torch.no_grad():
         for idx, sample in enumerate(dataloader_test):
@@ -72,7 +75,7 @@ def test(test_list):
                 iou = metric.iou_occ(output_occ, target_occ)
 
                 # save the predictions
-                if (idx + 1) == n_batches - 1:
+                if (idx + 1) > n_batches - 2:
                     pred_occs = output_occ[:args.n_vis + 1]
                     target_occs = target_occ[:args.n_vis + 1]
                     names = names[:args.n_vis + 1]
@@ -87,7 +90,7 @@ def test(test_list):
                 iou = metric.iou_df(output_df, target_df, trunc_dist=1.0)
 
                 # save the predictions
-                if (idx + 1) == n_batches - 1:
+                if (idx + 1) > n_batches - 2:
                     pred_dfs = output_df[:args.n_vis + 1]
                     target_dfs = target_df[:args.n_vis + 1]
                     names = names[:args.n_vis + 1]
@@ -95,10 +98,10 @@ def test(test_list):
                                            target_dfs=target_dfs,
                                            pred_occs=None, target_occs=None)
 
-            batch_loss += l1.item()
+            batch_l1 += l1.item()
             batch_iou += iou
 
-        l1_error = batch_loss / (idx + 1)
+        l1_error = batch_l1 / (idx + 1)
         mean_iou = batch_iou / (idx + 1)
 
         print("Mean IOU: ", mean_iou)

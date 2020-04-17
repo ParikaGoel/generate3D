@@ -200,7 +200,7 @@ def save_predictions(output_path, model_name, gt_type, names, pred_dfs, target_d
             pred_df = pred_dfs[k]
             # swaps width and depth dimension and removes the channel dimension
             pred_df = torch.transpose(pred_df[0], 0, 2)
-            np.save(os.path.join(output_path, name + "_pred_df"), pred_df.cpu().numpy())
+            # np.save(os.path.join(output_path, name + "_pred_df"), pred_df.cpu().numpy())
             # save the occupancy mesh from pred distance field
             df_to_mesh(os.path.join(output_path, name + "_pred_mesh.ply"), pred_df, trunc=1.0, color=color)
 
@@ -214,13 +214,13 @@ def save_predictions(output_path, model_name, gt_type, names, pred_dfs, target_d
         if pred_occs is not None:
             pred_occ = preprocess_occ(pred_occs[k], pred=True)
             occ_to_mesh(os.path.join(output_path, name + "_pred_mesh.ply"), pred_occ, color=color)
-            np.save(os.path.join(output_path, name + "_pred_mesh"), pred_occ.cpu().numpy())
+            # np.save(os.path.join(output_path, name + "_pred_mesh"), pred_occ.cpu().numpy())
 
         # if target_occs is not None:
         #     target_occ = preprocess_occ(target_occs[k], pred=False)
         #     occ_to_mesh(os.path.join(output_path, name + "_target_mesh.ply"), target_occ, color=color)
 
-if __name__ == '__main__':
-    for f in glob.glob("/home/parika/WorkingDir/complete3D/Assets/shapenet-raytraced/04379243/*.ply"):
-        print(f)
-        change_color(f, color=(0, 169, 255))
+# if __name__ == '__main__':
+#     for f in glob.glob("/home/parika/WorkingDir/complete3D/Assets/shapenet-raytraced/04379243/*.ply"):
+#         print(f)
+#         change_color(f, color=(0, 169, 255))

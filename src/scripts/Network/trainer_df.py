@@ -45,6 +45,21 @@ parser.set_defaults(use_logweight=False)
 args = parser.parse_args()
 print(args)
 
+
+def check_model_size(model):
+    num_params = 0
+    traininable_param = 0
+    for param in model.parameters():
+        num_params += param.numel()
+        if param.requires_grad:
+            traininable_param += param.numel()
+    print("[Network  Total number of parameters : %.3f M" % (num_params / 1e6))
+    print(
+        "[Network  Total number of trainable parameters : %.3f M"
+        % (traininable_param / 1e6)
+    )
+
+
 def create_summary_writers(train_writer_path, val_l1_writer_path, iou_writer_path):
     """
     :param train_writer_path: Path to the train writer
@@ -75,6 +90,8 @@ class Trainer:
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
         self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=args.decay_lr_epoch, gamma=args.lr_decay)
+
+        check_model_size(self.model)
 
     def train(self, epoch):
         self.model.train()
@@ -125,12 +142,12 @@ class Trainer:
                 batch_iou += iou
 
                 # save the predictions at the end of the epoch
-                if epoch > args.save_epoch and (idx + 1) == n_batches-1:
-                    pred_dfs = output_df[:args.n_vis + 1]
-                    target_dfs = target_df[:args.n_vis + 1]
-                    names = names[:args.n_vis + 1]
-                    utils.save_predictions(vis_save, args.model_name, args.gt_type, names, pred_dfs=pred_dfs, target_dfs=target_dfs,
-                                           pred_occs=None, target_occs=None)
+                # if epoch > args.save_epoch and (idx + 1) == n_batches-1:
+                #     pred_dfs = output_df[:args.n_vis + 1]
+                #     target_dfs = target_df[:args.n_vis + 1]
+                #     names = names[:args.n_vis + 1]
+                #     utils.save_predictions(vis_save, args.model_name, args.gt_type, names, pred_dfs=pred_dfs, target_dfs=target_dfs,
+                #                            pred_occs=None, target_occs=None)
 
             val_loss = batch_loss / (idx + 1)
             mean_iou = batch_iou / (idx + 1)

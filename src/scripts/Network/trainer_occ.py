@@ -150,12 +150,12 @@ class Trainer:
                 batch_iou += iou
 
                 # save the predictions at the end of the epoch
-                if epoch > args.save_epoch and (idx + 1) == n_batches-1:
-                    pred_occs = output_occ[:args.n_vis+1]
-                    target_occs = target_occ[:args.n_vis+1]
-                    names = names[:args.n_vis+1]
-                    utils.save_predictions(vis_save, args.model_name, args.gt_type, names, pred_dfs=None, target_dfs=None,
-                                           pred_occs=pred_occs, target_occs=target_occs)
+                # if epoch > args.save_epoch and (idx + 1) == n_batches-1:
+                #     pred_occs = output_occ[:args.n_vis+1]
+                #     target_occs = target_occ[:args.n_vis+1]
+                #     names = names[:args.n_vis+1]
+                #     utils.save_predictions(vis_save, args.model_name, args.gt_type, names, pred_dfs=None, target_dfs=None,
+                #                            pred_occs=pred_occs, target_occs=target_occs)
 
             val_loss_bce = batch_loss_bce / (idx + 1)
             val_loss_l1 = batch_loss_l1 / (idx + 1)
