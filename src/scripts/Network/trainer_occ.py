@@ -19,20 +19,20 @@ from torch.utils.tensorboard import SummaryWriter
 
 params = JSONHelper.read("../parameters.json")
 
-# python3 trainer_occ.py --synset_id 04379243 --model_name Net3D --gt_type occ --train_batch_size 8 --val_batch_size 32 --truncation 3 --lr 0.001 --lr_decay 0.1 --n_vis 20
-
 # command line params
 parser = argparse.ArgumentParser()
 # model params
+parser.add_argument('--retrain', type=str, default='', help='model path if retrain')
 parser.add_argument('--synset_id', type=str, required=True, help='synset id of the sample category')
 parser.add_argument('--model_name', type=str, required=True, help='which model arch to use')
 parser.add_argument('--gt_type', type=str, required=True, help='gt representation')
 parser.add_argument('--vox_dim', type=int, default=32, help='voxel dim')
 # train params
-parser.add_argument('--num_epochs', type=int, default=50, help='number of epochs')
-parser.add_argument('--save_epoch', type=int, default=10, help='save every model after n epochs')
+parser.add_argument('--max_epochs', type=int, default=50, help='max number of epochs to train for')
+parser.add_argument('--start_epoch', type=int, default=0, help='start epoch')
+parser.add_argument('--save_epoch', type=int, default=5, help='save every model after n epochs')
 parser.add_argument('--train_batch_size', type=int, default=8, help='batch size for training data')
-parser.add_argument('--val_batch_size', type=int, default=16, help='batch size for validation data')
+parser.add_argument('--val_batch_size', type=int, default=32, help='batch size for validation data')
 parser.add_argument('--lr', type=float, default=0.001, help='learning rate, default=0.001')
 parser.add_argument('--lr_decay', type=float, default=0.5, help='decay learning rate by lr_decay after every decay_lr_epoch epochs ')
 parser.add_argument('--decay_lr_epoch', type=int, default=10, help='decay learning rate by lr_decay after every decay_lr_epoch epochs')
@@ -89,7 +89,15 @@ class Trainer:
             exit(0)
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=args.decay_lr_epoch, gamma=args.lr_decay)
+        if args.retrain:
+            print('loading model: ', args.retrain)
+            checkpoint = torch.load(args.retrain)
+            args.start_epoch = args.start_epoch if args.start_epoch != 0 else checkpoint['epoch']
+            model.load_state_dict(checkpoint['state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer'])
+        last_epoch = -1 if not args.retrain else args.start_epoch - 1
+        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=args.decay_lr_epoch,
+                                                         gamma=args.lr_decay, last_epoch=last_epoch)
 
         check_model_size(self.model)
 
@@ -171,20 +179,21 @@ class Trainer:
         iou_at_best_l1 = 0
         l1_at_best_iou = 0
         start_time = datetime.datetime.now()
-        output_vis = "%s%s/vis/%s/%s_batch%s_trunc%s" % (params["network_output"], args.synset_id, args.model_name,
-                                                         args.gt_type, args.train_batch_size, args.truncation)
+        output_vis = "%s%s/vis/%s/%s_batch%s" % (params["network_output"], args.synset_id, args.model_name,
+                                                         args.gt_type, args.train_batch_size)
 
-        output_model = "%s%s/models/%s/%s_batch%s_trunc%s" % (params["network_output"], args.synset_id, args.model_name,
-                                                              args.gt_type, args.train_batch_size, args.truncation)
+        output_model = "%s%s/models/%s/%s_batch%s" % (params["network_output"], args.synset_id, args.model_name,
+                                                              args.gt_type, args.train_batch_size)
 
 
         pathlib.Path(output_vis).mkdir(parents=True, exist_ok=True)
         pathlib.Path(output_model).mkdir(parents=True, exist_ok=True)
 
-        for epoch in range(args.num_epochs):
+        for epoch in range(args.start_epoch, args.max_epochs):
             train_loss = self.train(epoch)
             val_loss_bce, val_loss_l1, iou = self.validate(epoch, output_vis)
-            self.scheduler.step()
+            print("Learning rate: %.3f" % self.optimizer.param_groups[0]['lr'])
+            # self.scheduler.step()
             print("Train loss: %.3f" % train_loss)
             print("Val loss (bce): %.3f" % val_loss_bce)
             print("Val loss (l1): %.3f" % val_loss_l1)
@@ -207,7 +216,7 @@ class Trainer:
             print("Epoch ", epoch+1, " finished\n")
 
             if epoch > args.save_epoch:
-                torch.save({'state_dict': self.model.state_dict(), 'optimizer': self.optimizer.state_dict()},
+                torch.save({'epoch': epoch+1, 'state_dict': self.model.state_dict(), 'optimizer': self.optimizer.state_dict()},
                            output_model + "/%02d.pth" % (epoch+1))
 
         end_time = datetime.datetime.now()
@@ -237,8 +246,8 @@ def main():
     print("Validation data size: ", len(val_list))
     print("Device: ", device)
 
-    log_dir = "%s%s/logs/%s/%s_batch%s_trunc%s" % (
-        params["network_output"], args.synset_id, args.model_name, args.gt_type, args.train_batch_size, args.truncation)
+    log_dir = "%s%s/logs/%s/%s_batch%s" % (
+        params["network_output"], args.synset_id, args.model_name, args.gt_type, args.train_batch_size)
     train_writer_path = log_dir + "/train/"
     val_bce_writer_path = log_dir + "/val_bce/"
     val_l1_writer_path = log_dir + "/val_l1/"
