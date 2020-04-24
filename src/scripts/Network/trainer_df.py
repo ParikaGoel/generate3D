@@ -95,11 +95,13 @@ class Trainer:
             print('loading model: ', args.retrain)
             checkpoint = torch.load(args.retrain)
             args.start_epoch = args.start_epoch if args.start_epoch != 0 else checkpoint['epoch']
-            model.load_state_dict(checkpoint['state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer'])
-        last_epoch = -1 if not args.retrain else args.start_epoch - 1
-        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=args.decay_lr_epoch,
-                                                         gamma=args.lr_decay, last_epoch=last_epoch)
+            self.model.load_state_dict(checkpoint['state_dict'])
+            self.optimizer.load_state_dict(checkpoint['optimizer'])
+            for param_group in self.optimizer.param_groups:
+                param_group['lr'] = args.lr
+        # last_epoch = -1 if not args.retrain else args.start_epoch - 1
+        # self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=args.decay_lr_epoch,
+        #                                                  gamma=args.lr_decay, last_epoch=last_epoch)
 
         check_model_size(self.model)
 
@@ -181,10 +183,10 @@ class Trainer:
         pathlib.Path(output_vis).mkdir(parents=True, exist_ok=True)
         pathlib.Path(output_model).mkdir(parents=True, exist_ok=True)
 
-        for epoch in range(args.num_epochs):
+        for epoch in range(args.start_epoch, args.max_epochs):
             train_loss = self.train(epoch)
             val_loss_l1, iou = self.validate(epoch, output_vis)
-            print("Learning rate: %.3f" % self.optimizer.param_groups[0]['lr'])
+            print("Learning rate: %.5f" % self.optimizer.param_groups[0]['lr'])
             # self.scheduler.step()
             print("Train loss: %.3f" % train_loss)
             print("Val loss: %.3f" % val_loss_l1)

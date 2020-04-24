@@ -22,14 +22,14 @@ params = JSONHelper.read('../parameters.json')
 parser = argparse.ArgumentParser()
 # model params
 parser.add_argument('--model_path', type=str, required=True, help='path to saved model')
-parser.add_argument('--synset_id', type=str, required=True, help='synset id of the sample category')
-parser.add_argument('--model_name', type=str, required=True, help='which model arch to use')
-parser.add_argument('--gt_type', type=str, required=True, help='gt representation')
+parser.add_argument('--synset_id', type=str, default='04379243', help='synset id of the sample category')
+parser.add_argument('--model_name', type=str, default='UNet3D', help='which model arch to use')
+parser.add_argument('--gt_type', type=str, default='occ', help='gt representation')
 parser.add_argument('--start_index', type=int, default=6740, help='index to start test set with')
 parser.add_argument('--vox_dim', type=int, default=32, help='voxel dim')
 parser.add_argument('--batch_size', type=int, default=32, help='batch size')
 parser.add_argument('--truncation', type=float, default=3, help='truncation in voxels')
-parser.add_argument('--n_vis', type=int, default=20, help='number of visualizations')
+parser.add_argument('--n_vis', type=int, default=30, help='number of visualizations')
 
 args = parser.parse_args()
 print(args)
@@ -50,8 +50,7 @@ def test(test_list):
     model = model.to(device)
     model.eval()
 
-    vis_save = "%sfinal_results/%s/%s" % (params["network_output"], args.model_name,
-                                                     args.gt_type)
+    vis_save = "%sfinal_results/vis/%s/%s" % (params["network_output"], args.model_name, args.gt_type)
     pathlib.Path(vis_save).mkdir(parents=True, exist_ok=True)
 
     batch_l1 = 0.0
@@ -115,7 +114,8 @@ def main():
         model_id = f[f.rfind('/') + 1:f.rfind('.')]
         test_list.append({'synset_id': args.synset_id, 'model_id': model_id})
 
-    test_list = test_list[args.start_index:]
+    test_list = test_list[6740:]
+    # test_list = test_list[5400:6740]
     test(test_list)
 
 
