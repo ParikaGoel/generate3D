@@ -1,10 +1,10 @@
-# shapeComplete
+# complete3D
 
 ## Get started
 
 1. Clone repo:
 
-```git clone https://github.com/skanti/Scan2CAD.git```
+```git clone https://github.com/ParikaGoel/complete3D```
 
 2. Ask for dataset: (You will need *ShapeNet*). 
 
@@ -31,6 +31,8 @@ make
 ``` python3 ./src/scripts/raytracing.py ```
 
 8. Training the network
-(For now the model id and category id are hardcoded in python file)
+(There are different scripts to train occupancy and distance field representation)
 
-``` python3 ./src/scripts/trainer.py ```
+``` python3 trainer_occ.py --synset_id 04379243 --model_name Net3D --gt_type occ --train_batch_size 32 --val_batch_size 32 --truncation 3 --lr 0.001 --lr_decay 0.5 --n_vis 20```
+
+More parameters can be customized which can be seen in the script
