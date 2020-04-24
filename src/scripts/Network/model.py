@@ -160,34 +160,34 @@ class UNet3D(nn.Module):
             nn.ReLU(True)
         )
         self.encode2 = nn.Sequential(
-            nn.Conv3d(32, 48, kernel_size=3, stride=2, padding=1),
-            nn.InstanceNorm3d(48),
-            nn.ReLU(True)
-        )
-        self.encode3 = nn.Sequential(
-            nn.Conv3d(48, 64, kernel_size=3, stride=2, padding=1),
+            nn.Conv3d(32, 64, kernel_size=3, stride=2, padding=1),
             nn.InstanceNorm3d(64),
             nn.ReLU(True)
         )
-        self.encode4 = nn.Sequential(
+        self.encode3 = nn.Sequential(
             nn.Conv3d(64, 96, kernel_size=3, stride=2, padding=1),
             nn.InstanceNorm3d(96),
+            nn.ReLU(True)
+        )
+        self.encode4 = nn.Sequential(
+            nn.Conv3d(96, 128, kernel_size=3, stride=2, padding=1),
+            nn.InstanceNorm3d(128),
             nn.ReLU(True)
         )
 
         # Decoder Part
         self.decode1 = nn.Sequential(
-            nn.ConvTranspose3d(96, 64, kernel_size=3, stride=2, padding=1, output_padding=1),
-            nn.InstanceNorm3d(64),
+            nn.ConvTranspose3d(128, 96, kernel_size=3, stride=2, padding=1, output_padding=1),
+            nn.InstanceNorm3d(96),
             nn.ReLU(True)
         )
         self.decode2 = nn.Sequential(
-            nn.ConvTranspose3d(64 * 2, 48, kernel_size=3, stride=2, padding=1, output_padding=1),
-            nn.InstanceNorm3d(48),
+            nn.ConvTranspose3d(96 * 2, 64, kernel_size=3, stride=2, padding=1, output_padding=1),
+            nn.InstanceNorm3d(64),
             nn.ReLU(True)
         )
         self.decode3 = nn.Sequential(
-            nn.ConvTranspose3d(48 * 2, 32, kernel_size=3, stride=2, padding=1, output_padding=1),
+            nn.ConvTranspose3d(64 * 2, 32, kernel_size=3, stride=2, padding=1, output_padding=1),
             nn.InstanceNorm3d(32),
             nn.ReLU(True)
         )

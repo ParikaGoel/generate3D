@@ -93,15 +93,17 @@ class Trainer:
             print('loading model: ', args.retrain)
             checkpoint = torch.load(args.retrain)
             args.start_epoch = args.start_epoch if args.start_epoch != 0 else checkpoint['epoch']
-            model.load_state_dict(checkpoint['state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer'])
+            self.model.load_state_dict(checkpoint['state_dict'])
+            self.optimizer.load_state_dict(checkpoint['optimizer'])
+            for param_group in self.optimizer.param_groups:
+                param_group['lr'] = args.lr
         last_epoch = -1 if not args.retrain else args.start_epoch - 1
         self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=args.decay_lr_epoch,
                                                          gamma=args.lr_decay, last_epoch=last_epoch)
 
         check_model_size(self.model)
 
-    def train(self, epoch):
+    def train(self):
         self.model.train()
         batch_loss = 0.0
 
@@ -121,9 +123,6 @@ class Trainer:
 
             # ===================log========================
             batch_loss += loss.item()
-
-            # if (idx + 1) % 10 == 0:
-            #     print('Training : [iter %d / epoch %d] loss: %.3f' % (idx + 1, epoch + 1, loss.item()))
 
         train_loss = batch_loss / (idx + 1)
         return train_loss
@@ -178,26 +177,26 @@ class Trainer:
         best_iou_epoch = 0
         iou_at_best_l1 = 0
         l1_at_best_iou = 0
-        start_time = datetime.datetime.now()
-        output_vis = "%s%s/vis/%s/%s_batch%s" % (params["network_output"], args.synset_id, args.model_name,
-                                                         args.gt_type, args.train_batch_size)
+        # start_time = datetime.datetime.now()
+        output_vis = "%s%s/vis/%s/%s" % (params["network_output"], args.synset_id, args.model_name,
+                                                         args.gt_type)
 
-        output_model = "%s%s/models/%s/%s_batch%s" % (params["network_output"], args.synset_id, args.model_name,
-                                                              args.gt_type, args.train_batch_size)
+        output_model = "%s%s/%s_tuning/%s/models/run8" % (params["network_output"], args.synset_id, args.model_name,
+                                                              args.gt_type)
 
 
         pathlib.Path(output_vis).mkdir(parents=True, exist_ok=True)
         pathlib.Path(output_model).mkdir(parents=True, exist_ok=True)
 
         for epoch in range(args.start_epoch, args.max_epochs):
-            train_loss = self.train(epoch)
+            train_loss = self.train()
             val_loss_bce, val_loss_l1, iou = self.validate(epoch, output_vis)
-            print("Learning rate: %.3f" % self.optimizer.param_groups[0]['lr'])
-            # self.scheduler.step()
-            print("Train loss: %.3f" % train_loss)
-            print("Val loss (bce): %.3f" % val_loss_bce)
-            print("Val loss (l1): %.3f" % val_loss_l1)
-            print("IOU: %.3f" % iou)
+            print("Learning rate: %.6f" % self.optimizer.param_groups[0]['lr'])
+            self.scheduler.step()
+            # print("Train loss: %.3f" % train_loss)
+            # print("Val loss (bce): %.3f" % val_loss_bce)
+            # print("Val loss (l1): %.3f" % val_loss_l1)
+            print("IOU: %.4f" % iou)
             train_writer.add_scalar("loss", train_loss, epoch + 1)
             val_bce_writer.add_scalar("loss", val_loss_bce, epoch + 1)
             val_l1_writer.add_scalar("loss", val_loss_l1, epoch + 1)
@@ -213,17 +212,15 @@ class Trainer:
                 best_iou_epoch = epoch + 1
                 l1_at_best_iou = val_loss_l1
 
-            print("Epoch ", epoch+1, " finished\n")
-
             if epoch > args.save_epoch:
                 torch.save({'epoch': epoch+1, 'state_dict': self.model.state_dict(), 'optimizer': self.optimizer.state_dict()},
                            output_model + "/%02d.pth" % (epoch+1))
 
-        end_time = datetime.datetime.now()
+        # end_time = datetime.datetime.now()
         print("Finished training")
         print("Least val loss %.4f (iou: %.4f) at epoch %d\n" % (best_val_loss, iou_at_best_l1, best_val_loss_epoch))
         print("Best iou %.4f (l1: %.4f) at epoch %d\n" % (best_iou, l1_at_best_iou, best_iou_epoch))
-        print("Time taken: ", start_time.strftime('%D:%H:%M:%S'), " to ", end_time.strftime('%D:%H:%M:%S'))
+        # print("Time taken: ", start_time.strftime('%D:%H:%M:%S'), " to ", end_time.strftime('%D:%H:%M:%S'))
         train_writer.close()
         val_bce_writer.close()
         val_l1_writer.close()
@@ -246,8 +243,8 @@ def main():
     print("Validation data size: ", len(val_list))
     print("Device: ", device)
 
-    log_dir = "%s%s/logs/%s/%s_batch%s" % (
-        params["network_output"], args.synset_id, args.model_name, args.gt_type, args.train_batch_size)
+    log_dir = "%s%s/%s_tuning/%s/logs/run8" % (
+        params["network_output"], args.synset_id, args.model_name, args.gt_type)
     train_writer_path = log_dir + "/train/"
     val_bce_writer_path = log_dir + "/val_bce/"
     val_l1_writer_path = log_dir + "/val_l1/"
