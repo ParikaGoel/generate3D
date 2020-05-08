@@ -31,8 +31,10 @@ make
 ``` python3 ./src/scripts/raytracing.py ```
 
 8. Training the network
-(There are different scripts to train occupancy and distance field representation)
+(There are different scripts to train occupancy and distance field representation. Example commands are given below)
 
 ``` python3 trainer_occ.py --synset_id 04379243 --model_name Net3D --gt_type occ --train_batch_size 32 --val_batch_size 32 --truncation 3 --lr 0.001 --lr_decay 0.5 --n_vis 20```
+
+``` python3 trainer_df.py --synset_id 04379243 --model_name UNet3D --gt_type tdflog --use_logweight --train_batch_size 8 --val_batch_size 32 --truncation 3 --lr 0.001 --lr_decay 0.1 --n_vis 20 --num_epochs 50```
 
 More parameters can be customized which can be seen in the script
