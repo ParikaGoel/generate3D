@@ -3,5 +3,5 @@
 	"shapenet_voxelized" : "/home/parika/WorkingDir/complete3D/Assets/shapenet-voxelized-gt/",
 	"shapenet_renderings" : "/home/parika/WorkingDir/complete3D/Assets/shapenet-renderings/",
 	"shapenet_raytraced" : "/home/parika/WorkingDir/complete3D/Assets/shapenet-raytraced/",
-	"network_output" : "/home/parika/WorkingDir/complete3D/Assets/output-network/"
+	"network_output" : "/home/parika/WorkingDir/complete3D/Assets/output/"
 }
