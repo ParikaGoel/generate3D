@@ -1,5 +1,7 @@
 # complete3D
 
+With the recent advances in convolutional neural networks (CNNs) and the availability of large scale 3D datasets like Shapenet, there has been increased interest in learning based approaches for 3D shape reconstruction. Unlike images, there is no standard representation for 3D shapes. Until now, deep neural networks have used variety of representations for 3D shapes like voxel grids, point clouds, deformable meshes or patches and graph based structures. Voxel grids have been a popular choice to represent 3D shapes because of their underlying regular grid structure. Two most popular voxel grid representations used have been Occupancy Grids and Distance Fields. We have used both representations to reconstruct 3D shape of an object from a single image and provided a comparison of the accuracy of generated 3D models. We have experimented with two different architectures for our encoder-decoder network and provided a comparison of their performance. The details about our work can be found in the Report which is present in the literature folder.
+
 ## Get started
 
 1. Clone repo:
